@@ -1,4 +1,4 @@
-# $Id: DNS.pm,v 1.14 2004/02/02 21:29:34 rcaputo Exp $
+# $Id: DNS.pm,v 1.20 2004/10/07 03:34:35 rcaputo Exp $
 # License and documentation are after __END__.
 
 package POE::Component::Client::DNS;
@@ -6,13 +6,57 @@ package POE::Component::Client::DNS;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '0.97';
+$VERSION = '0.98';
 
 use Carp qw(croak);
 
 use Socket qw(unpack_sockaddr_in inet_ntoa);
 use Net::DNS;
-use POE::Session;
+use POE;
+
+# Keep track of requests for each response socket.  Used to pass data
+# around select_read().
+
+my %req_by_socket;
+
+# Object fields.  "SF" stands for "self".
+
+sub SF_ALIAS       () { 0 }
+sub SF_TIMEOUT     () { 1 }
+sub SF_NAMESERVERS () { 2 }
+sub SF_RESOLVER    () { 3 }
+
+# Attempt to figure out where /etc/hosts lives.  It moves!  Augh!  It
+# moves!  This is an attempt to resolve rt.cpan.org ticket #7911.
+
+BEGIN {
+  my @candidates = (
+    "/etc/hosts",
+  );
+
+  if ($^O eq "MSWin32" or $^O eq "Cygwin") {
+    my $sys_dir;
+    $sys_dir = $ENV{SystemRoot} || "c:\\Windows";
+    push(
+      @candidates,
+      "$sys_dir\\System32\\Drivers\\Etc\\hosts",
+      "$sys_dir\\System\\Drivers\\Etc\\hosts",
+      "$sys_dir\\hosts",
+    );
+  }
+
+  my $host_file = $candidates[0];
+  foreach my $candidate (@candidates) {
+    next unless -f $candidate;
+    $host_file = $candidate;
+    last;
+  }
+
+  $host_file =~ s/\\+/\//g;
+
+  eval "sub ETC_HOSTS () { '$host_file' }";
+  die if $@;
+}
 
 # Spawn a new PoCo::Client::DNS session.  This basically is a
 # constructor, but it isn't named "new" because it doesn't create a
@@ -20,16 +64,14 @@ use POE::Session;
 
 sub spawn {
   my $type = shift;
-
   croak "$type requires an even number of parameters" if @_ % 2;
-
   my %params = @_;
 
   my $alias = delete $params{Alias};
-  $alias = 'resolver' unless defined $alias and length $alias;
+  $alias = "resolver" unless $alias;
 
   my $timeout = delete $params{Timeout};
-  $timeout = 90 unless defined $timeout and $timeout >= 0;
+  $timeout = 90 unless $timeout;
 
   my $nameservers = delete $params{Nameservers};
 
@@ -37,80 +79,136 @@ sub spawn {
     "$type doesn't know these parameters: ", join(', ', sort keys %params)
   ) if scalar keys %params;
 
+  my $self = bless [
+    $alias,                     # SF_ALIAS
+    $timeout,                   # SF_TIMEOUT
+    $nameservers,               # SF_NAMESERVERS
+    Net::DNS::Resolver->new(),  # SF_RESOLVER
+  ], $type;
+
+  # Set the list of nameservers, if one was supplied.
+  if (defined($nameservers) and ref($nameservers) eq 'ARRAY') {
+    $self->[SF_RESOLVER]->nameservers(@$nameservers);
+  }
+
   POE::Session->create(
-    inline_states => {
-      _start           => \&poco_dns_start,
-      _default         => \&poco_dns_default,
-      got_dns_response => \&poco_dns_response,
-      resolve          => \&poco_dns_resolve,
-      send_request     => \&poco_dns_do_request,
-    },
-    args => [ $alias, $timeout, $nameservers ],
+    object_states => [
+      $self => {
+        _default         => "_dns_default",
+        _start           => "_dns_start",
+        got_dns_response => "_dns_response",
+        resolve          => "_dns_resolve",
+        send_request     => "_dns_do_request",
+      },
+    ],
   );
 
-  undef;
+  return $self;
+}
+
+# Public method interface.
+
+sub resolve {
+  my $self = shift;
+  croak "resolve() needs an even number of parameters" if @_ % 2;
+  my %args = @_;
+
+  croak "resolve() must include an 'event'"  unless exists $args{event};
+  croak "resolve() must include a 'context'" unless exists $args{context};
+  croak "resolve() must include a 'host'"    unless exists $args{host};
+
+  $poe_kernel->post( $self->[SF_ALIAS], "resolve", \%args );
+
+  return undef;
 }
 
 # Start the resolver session.  Record the parameters which were
 # validated in spawn(), create the internal resolver object, and set
 # an alias which we'll be known by.
 
-sub poco_dns_start {
-  my ($kernel, $heap, $alias, $timeout, $nameservers) =
-    @_[KERNEL, HEAP, ARG0, ARG1, ARG2];
-
-  $heap->{resolver} = Net::DNS::Resolver->new();
-  $heap->{postback} = { };
-  $heap->{timeout}  = $timeout;
-
-  # Set the list of nameservers, if one was supplied.
-  $heap->{resolver}->nameservers(@$nameservers)
-    if defined($nameservers) and ref($nameservers) eq 'ARRAY';
-
-  $kernel->alias_set($alias);
+sub _dns_start {
+  my ($object, $kernel) = @_[OBJECT, KERNEL];
+  $kernel->alias_set($object->[SF_ALIAS]);
 }
 
-# Receive a request.  This uses postbacks to keep the client session
-# alive until a response is received.
+# Receive a request.  Version 4 API.  This uses extra reference counts
+# to keep the client sessions alive until responses are ready.
 
-sub poco_dns_resolve {
-  my ($kernel, $heap, $sender, $response, $request, $type, $class) =
-    @_[KERNEL, HEAP, SENDER, ARG0, ARG1, ARG2, ARG3];
+sub _dns_resolve {
+  my ($self, $kernel, $sender, $event, $host, $type, $class) =
+    @_[OBJECT, KERNEL, SENDER, ARG0, ARG1, ARG2, ARG3];
 
-  # Parse user args from the magical $response format.
+  my $debug_info =
+    "in Client::DNS request at $_[CALLER_FILE] line $_[CALLER_LINE]\n";
 
-  my @user_args;
-  if (ref $response eq "ARRAY") {
-    @user_args = @{ $response };
-    $response = shift @user_args;
+  my ($api_version, $context, $timeout);
+
+  # Version 3 API.  Pass the entire request as a hash.
+  if (ref($event) eq 'HASH') {
+    my %args = %$event;
+
+    $type = delete $args{type};
+    $type = "A" unless $type;
+
+    $class = delete $args{class};
+    $class = "IN" unless $class;
+
+    $event = delete $args{event};
+    die "Must include an 'event' $debug_info" unless $event;
+
+    $context = delete $args{context};
+    die "Must include a 'context' $debug_info" unless $context;
+
+    $timeout = delete $args{timeout};
+
+    $host = delete $args{host};
+    die "Must include a 'host' $debug_info" unless $host;
+
+    $api_version = 3;
   }
 
-  # If it's an IN type A request, check /etc/hosts.  -><- This is not
-  # always the right thing to do, but it's more right more often than
-  # never checking at all.
+  # Parse user args from the magical $response format.  Version 2 API.
+
+  elsif (ref($event) eq "ARRAY") {
+    $context     = $event;
+    $event       = shift @$context;
+    $api_version = 2;
+  }
+
+  # Whee.  Version 1 API.
+
+  else {
+    $context     = [ ];
+    $api_version = 1;
+  }
+
+  # Default the request's timeout.
+  $timeout = $self->[SF_TIMEOUT] unless $timeout;
+
+  # Set an extra reference on the sender so it doesn't go away.
+  $kernel->refcount_increment($sender->ID, __PACKAGE__);
+
+  # If it's an IN type A request, check /etc/hosts or the equivalent.
+  # -><- This is not always the right thing to do, but it's more right
+  # more often than never checking at all.
 
   if ($type eq "A" and $class eq "IN") {
-    if (open(HOST, "</etc/hosts")) {
+    if (open(HOST, "<", ETC_HOSTS)) {
       while (<HOST>) {
         next if /^\s*\#/;
         s/^\s*//;
         chomp;
         my ($address, @aliases) = split;
-        next unless grep /^\Q$request\E$/i, @aliases;
+        next unless grep /^\Q$host\E$/i, @aliases;
         close HOST;
 
-        # Build a postback even though we're posting a response right
-        # away.  This ensures it's the proper format.
-        my $postback =
-          $sender->postback($response, $request, $type, $class, @user_args);
+        # Pretend the request went through a name server.
 
-        # Build a fake Net::DNS response packet.  Essentially
-        # pretending we went through a name server.
         my $packet = Net::DNS::Packet->new($address, "A", "IN");
         $packet->push(
           "answer",
           Net::DNS::RR->new(
-            Name    => $request,
+            Name    => $host,
             TTL     => 1,
             Class   => $class,
             Type    => $type,
@@ -118,8 +216,21 @@ sub poco_dns_resolve {
           )
         );
 
-        # Send the packet back, and return without doing all the work.
-        $postback->($packet, "");
+        # Send the response immediately, and return.
+
+        _send_response(
+          api_ver  => $api_version,
+          sender   => $sender,
+          event    => $event,
+          host     => $host,
+          type     => $type,
+          class    => $class,
+          context  => $context,
+          response => $packet,
+          error    => "",
+        );
+
+        close HOST;
         return;
       }
       close HOST;
@@ -134,121 +245,105 @@ sub poco_dns_resolve {
   $kernel->yield(
     send_request => {
       sender    => $sender,
-      response  => $response,
-      request   => $request,
+      event     => $event,
+      host      => $host,
       type      => $type,
       class     => $class,
-      user_args => \@user_args,
+      context   => $context,
       started   => $now,
-      ends      => $now + $heap->{timeout},
-      timeout   => $heap->{timeout},
+      ends      => $now + $timeout,
+      api_ver   => $api_version,
     }
   );
-
-  # Set an extra reference on the sender so it doesn't go away yet.
-  $kernel->refcount_increment($sender->ID, __PACKAGE__);
 }
 
 # Perform the real request.  May recurse to perform retries.
 
-sub poco_dns_do_request {
-  my ($kernel, $heap, $req) = @_[KERNEL, HEAP, ARG0];
+sub _dns_do_request {
+  my ($self, $kernel, $req) = @_[OBJECT, KERNEL, ARG0];
+
+  # Did the request time out?
+  my $remaining = $req->{ends} - time();
+  if ($remaining <= 0) {
+    _send_response(
+      %$req,
+      response => undef,
+      error    => "timeout",
+    );
+    return;
+  }
 
   # Send the request.
-  my $resolver_socket = $heap->{resolver}->bgsend(
-    $req->{request},
+  my $resolver_socket = $self->[SF_RESOLVER]->bgsend(
+    $req->{host},
     $req->{type},
     $req->{class}
   );
 
-  # The request failed?  Retry?
+  # The request failed?  Attempt to retry.
+
   unless ($resolver_socket) {
-    # Reduce the remaining timeout, and test whether we're beyond our
-    # limit already.
-    if ( (--$req->{timeout} < 0) or (time() > $req->{ends}) ) {
-      # Simulate a postback for the timeout.
-      $kernel->post(
-        $req->{session}, $req->{response},
-        [ $req->{request}, $req->{type}, $req->{class}, @{$req->{user_args}}, ],
-        [ undef, 'timeout', ]
-      );
-
-      # Let the client session go.
-      $kernel->refcount_decrement($req->{sender}->ID, __PACKAGE__);
-
-      return;
-    }
-
-    # We still have time on the meter.  Go around again, with a
-    # slightly reduced timeout.
-    $kernel->delay_add(send_request => 1, $req);
+    $remaining = 1 if $remaining > 1;
+    $kernel->delay_add(send_request => $remaining, $req);
     return;
   }
 
-  # We have a resolver socket!  Let's use it.
+  # Set a timeout for the request, and watch the response socket for
+  # activity.
 
-  # Create a postback.  This will keep the sender session alive until
-  # we're done with the request.
-  $heap->{postback}->{$resolver_socket} = $req->{sender}->postback(
-    $req->{response},
-    $req->{request},
-    $req->{type},
-    $req->{class},
-    @{$req->{user_args}}
-  );
+  $req_by_socket{$resolver_socket} = $req;
 
-  # Let the client session go.  The postback will take care of it.
-  $kernel->refcount_decrement($req->{sender}->ID, __PACKAGE__);
-
-  # Set the time we'll wait for a response.  This uses whatever time
-  # is left on the request.
-  $kernel->delay($resolver_socket, $req->{timeout});
-
-  # Watch the response socket for activity.
+  $kernel->delay($resolver_socket, $remaining, $resolver_socket);
   $kernel->select_read($resolver_socket, 'got_dns_response');
 }
 
 # A resolver query timed out.  Post an error back.
 
-sub poco_dns_default {
-  my ($kernel, $heap, $resolver_socket) = @_[KERNEL, HEAP, ARG0];
+sub _dns_default {
+  my ($kernel, $event, $args) = @_[KERNEL, ARG0, ARG1];
+  my $socket = $args->[0];
 
-  # Retrieve the postback registered for this request.  If it doesn't
-  # exist, then this probably is some other sort of event.
-  my $postback = delete $heap->{postback}->{$resolver_socket};
-  if (defined $postback) {
+  return unless defined($socket) and $event eq $socket;
 
-    # Stop watching the socket.  The timeout for this request is
-    $kernel->select_read($resolver_socket);
+  my $req = delete $req_by_socket{$socket};
+  return unless $req;
 
-    # Post back an undefined response, indicating we timed out.
-    $postback->(undef, 'timeout');
-  }
+  # Stop watching the socket.
+  $kernel->select_read($socket);
 
-  # Be sure not to handle signals.  This will let some other part of
-  # the program decide whether we're to go away.
-  return 0;
+  # Post back an undefined response, indicating we timed out.
+  _send_response(
+    %$req,
+    response => undef,
+    error    => "timeout",
+  );
+
+  # Don't accidentally handle signals.
+  return;
 }
 
 # A resolver query generated a response.  Post the reply back.
 
-sub poco_dns_response {
-  my ($kernel, $heap, $resolver_socket) = @_[KERNEL, HEAP, ARG0];
+sub _dns_response {
+  my ($self, $kernel, $socket) = @_[OBJECT, KERNEL, ARG0];
+
+  my $req = delete $req_by_socket{$socket};
+  return unless $req;
 
   # Turn off the timeout for this request, and stop watching the
   # resolver connection.
-  $kernel->delay($resolver_socket);
-  $kernel->select_read($resolver_socket);
+  $kernel->delay($socket);
+  $kernel->select_read($socket);
 
   # Read the DNS response.
-  my $packet = $heap->{resolver}->bgread($resolver_socket);
+  my $packet = $self->[SF_RESOLVER]->bgread($socket);
 
   # Set the packet's answerfrom field, if the packet was received ok
   # and an answerfrom isn't already included.  This uses the
   # documented peerhost() method
 
   if (defined $packet and !defined $packet->answerfrom) {
-    my $answerfrom = getpeername($resolver_socket);
+    my $answerfrom = getpeername($socket);
     if (defined $answerfrom) {
       $answerfrom = (unpack_sockaddr_in($answerfrom))[1];
       $answerfrom = inet_ntoa($answerfrom);
@@ -256,11 +351,50 @@ sub poco_dns_response {
     }
   }
 
-  # Retrieve the postback for this request.
-  my $postback = delete $heap->{postback}->{$resolver_socket};
+  # Send the response.
+  _send_response(
+    %$req,
+    response => $packet,
+    error    => $self->[SF_RESOLVER]->errorstring(),
+  );
+}
 
-  # If the postback exists, pass the packet back.
-  $postback->($packet, $heap->{resolver}->errorstring) if defined $postback;
+# Send a response.  Fake a postback for older API versions.  Send a
+# nice, tidy hash for new ones.  Also decrement the reference count
+# that's keeping the requester session alive.
+
+sub _send_response {
+  my %args = @_;
+
+  # Simulate a postback for older API versions.
+
+  my $api_version = delete $args{api_ver};
+  if ($api_version < 3) {
+    $poe_kernel->post(
+      $args{sender}, $args{event},
+      [ $args{host}, $args{type}, $args{class}, @{$args{context}} ],
+      [ $args{response}, $args{error} ],
+    );
+  }
+
+  # New, fancy, shiny hash-based response.
+
+  else {
+    $poe_kernel->post(
+      $args{sender}, $args{event},
+      {
+        host     => $args{host},
+        type     => $args{type},
+        class    => $args{class},
+        context  => $args{context},
+        response => $args{response},
+        error    => $args{error},
+      }
+    );
+  }
+
+  # Let the client session go.
+  $poe_kernel->refcount_decrement($args{sender}->ID, __PACKAGE__);
 }
 
 1;
@@ -269,162 +403,201 @@ __END__
 
 =head1 NAME
 
-POE::Component::Client::DNS - a DNS client component
+POE::Component::Client::DNS - non-blocking, concurrent DNS requests
 
 =head1 SYNOPSIS
 
   use POE qw(Component::Client::DNS);
 
-  POE::Component::Client::DNS->spawn(
-    Alias       => 'named',       # defaults to 'resolver'
-    Timeout     => 120,           # defaults to 90 seconds
-    Nameservers => [ localhost ], # defaults per Net::DNS
+  my $named = POE::Component::Client::DNS->spawn(
+    Alias => "named"
   );
 
-  $kernel->post('named',     # posts to the 'named' alias
-                'resolve',   # post to named's 'resolve' state
-                'postback',  # which of our states will receive responses
-                $address,    # the address to resolve
-                'A', 'IN'    # the record type and class to return
-               );
-
-  # Or
-
-  $kernel->post(named => resolve => [postback => $param], $address,'MX');
-
-  # When the specified postback state is an array reference, it will
-  # handle the first element as the name of the postback state, and
-  # any following parameters will be passed back in the $_[ARG0]
-  # array.
-
-  # This is the sub which is called when the session receives a
-  # 'postback' event.
-  sub postback_handler {
-    my (@original_request_parameters) = @{$_[ARG0]}[0..2];
-    my (@postback_parameters) = @{$_[ARG0]}[3..$#_[ARG0]];
-    my ($net_dns_packet, $net_dns_errorstring) = @{$_[ARG1]};
-
-    my $request_address = $original_request_parameters[0];
-
-    unless (defined $net_dns_packet) {
-      print "$request_address: error ($net_dns_errorstring)\n";
-      return;
+  POE::Session->create(
+    inline_states  => {
+      _start   => \&start_tests,
+      response => \&got_response,
     }
+  );
 
-    my @net_dns_answers = $net_dns_packet->answer;
+  POE::Kernel->run();
+  exit;
 
-    unless (@net_dns_answers) {
-      print "$request_address: no answer\n";
-      return;
+  sub start_tests {
+    my $response = $named->resolve(
+      event   => "response",
+      host    => "localhost",
+      context => { },
+    );
+    if ($response) {
+      $_[KERNEL]->yield(response => $response);
     }
+  }
 
-    foreach my $net_dns_answer (@net_dns_answers) {
-      printf( "%25s (%-10.10s) %s\n",
-              $request_address,
-              $net_dns_answer->type,
-              $net_dns_answer->rdatastr
-            );
+  sub got_response {
+    my $response = $_[ARG0];
+    my @answers = $response->{response}->answer();
+
+    foreach my $answer (@answers) {
+      print(
+        "$response->{host} = ",
+        $answer->type(), " ",
+        $answer->rdatastr(), "\n"
+      );
     }
   }
 
 =head1 DESCRIPTION
 
-POE::Component::Client::DNS is a wrapper for non-blocking Net::DNS.
-It lets other tasks to run while something is waiting for a nameserver
-to respond, and it lets several DNS queries run in parallel.
+POE::Component::Client::DNS provides a facility for non-blocking,
+concurrent DNS requests.  Using POE, it allows other tasks to run
+while waiting for name servers to respond.
 
-DNS client components are not proper objects.  Instead of being
-created, as most objects are, they are "spawned" as separate sessions.
-To avoid confusion (and hopefully not cause other confusion), they
-must be spawned with a C<spawn> method, not created anew with a C<new>
-one.
-
-PoCo::Client::DNS's C<spawn> method takes a few named parameters:
+=head1 PUBLIC METHODS
 
 =over 2
 
-=item Alias => $session_alias
+=item spawn
 
-C<Alias> sets the name by which the session will be known.  If no
-alias is given, the component defaults to "resolver".  The alias lets
-several sessions interact with resolver components without keeping (or
-even knowing) hard references to them.  It's possible to spawn several
-DNS components with different names.
+A program must spawn at least one POE::Component::Client::DNS instance
+before it can perform background DNS lookups.  Each instance
+represents a connection to a name server, or a pool of them.  If a
+program only needs to request DNS lookups from one server, then you
+only need one POE::Component::Client::DNS instance.
 
-=item Timeout => $resolve_timeout
+As of version 0.98 you can override the default timeout per request.
+From this point forward there is no need to spawn multiple instances o
+affect different timeouts for each request.
 
-C<Timeout> specifies the amount of time a DNS client component will
-wait for a response.  C<$resolve_timeout> holds a real number
-indicating how many seconds to wait.  It's possible to wait for
-fractional seconds with it whether or not Time::HiRes is installed,
-but installing Time::HiRes will make the actual timeouts more
-accurate.  The default timeout period is 90 seconds.
+PoCo::Client::DNS's C<spawn> method takes a few named parameters:
 
-=item Nameservers => \@name_servers
+Alias sets the component's alias.  Requests will be posted to this
+alias.  The component's alias defaults to "resolver" if one is not
+provided.  Programs spawning more than one DNS client component must
+specify aliases for N-1 of them, otherwise alias collisions will
+occur.
 
-C<Nameservers> holds a reference to a list of nameservers to try.  The
-nameservers are passed directly to Net::DNS::Resolver's C<nameservers>
-method.  Net::DNS::Resolver's default nameservers are the ones that
-occur in /etc/resolv.conf or its local equivalent.
+  Alias => $session_alias,  # defaults to "resolver"
 
-=back
+Timeout sets the component's default timeout.  The timeout may be
+overridden per request.  See the "request" event, later on.  If no
+Timeout is set, the component will wait 90 seconds per request by
+default.
 
-Sessions communicate asynchronously with PoCo::Client::DNS.  They post
-requests to it, and it posts responses back.
+Timeouts may be set to real numbers.  Timeouts are more accurate if
+you have Time::HiRes installed.  POE (and thus this component) will
+use Time::HiRes automatically if it's available.
 
-Requests are posted to the component's "resolve" state.  They include
-the name of a state to post responses back to, an address to look up,
-and a reference to a list of record types to return.  For example:
+  Timeout => $seconds_to_wait,  # defaults to 90
 
-  $kernel->post(resolver => resolve => # resolver session alias & state
-           [ got_response => $param ], # my state to receive responses
-              'poe.perl.org',          # look up poe.perl.org
-              'ANY'                    # return any IN records found
-            );
+Nameservers holds a reference to a list of name servers to try.  The
+list is passed directly to Net::DNS::Resolver's nameservers() method.
+By default, POE::Component::Client::DNS will query the name servers
+that appear in /etc/resolv.conf or its equivalent.
 
-Requests include the state to which responses will be posted.  In the
-previous example, the handler for a 'got_response' state will be
-called with each resolver response.  If the passed through parameter
-for 'got_response' is an array reference then the first element will
-be treated as the name of the state, and any further elements will be
-passed back to the state as arguments.
+  Nameservers => \@name_servers,  # defaults to /etc/resolv.conf's
 
-Resolver responses come with two list references:
+=item resolve
 
-  my ($request_packet, $response_packet) = @_[ARG0, ARG1];
+resolve() requests the component to resolve a host name.  It will
+return a hash reference (described in RESPONSE MESSAGES, below) if it
+can honor the request immediately (perhaps from a cache).  Otherwise
+it returns undef if a resolver must be consulted asynchronously.
 
-C<$request_packet> contains the address and record types from the
-original request, and any user specified parameters for postback:
+Requests are passed as a list of named fields.
 
-  my ($request_address, $request_type, $request_class, @params) = 
-      @$request_packet;
+  $resolver->resolve(
+    class   => $dns_record_class,  # defaults to "IN"
+    type    => $dns_record_type,   # defaults to "A"
+    host    => $request_host,      # required
+    context => $request_context,   # required
+    event   => $response_event,    # required
+    timeout => $request_timeout,   # defaults to spawn()'s Timeout
+  );
 
-C<$response_packet> contains two things: a reference to a
-Net::DNS::Packet object (or undef on error), and the last
-Net::DNS::Resolver error string (which describes why the packet
-reference might be undef).
+The "class" and "type" fields specify what kind of information to
+return about a host.  Most of the time internet addresses are
+requested for host names, so the class and type default to "IN"
+(internet) and "A" (address), respectively.
 
-  my ($response_packet, $response_error) = @$response_packet;
+The "host" field designates the host to look up.  It is required.
 
-Please see the Net::DNS::Packet manpage for more information about DNS
-packets and their contents.  The PoCo::Client::DNS test program is
-also a good example for using Net::DNS::Packet objects.
+The "event" field tells the component which event to send back when a
+response is available.  It is required, but it will not be used if
+resolve() can immediately return a cached response.
+
+"timeout" tells the component how long to wait for a response to this
+request.  It defaults to the "Timeout" given at spawn() time.
+
+"context" includes some external data that links responses back to
+their requests.  The context data is provided by the program that uses
+POE::Component::Client::DNS.  The component will pass the context back
+to the program without modification.  The "context" parameter is
+required, and may contain anything that fits in a scalar.
+
+=head1 RESPONSE MESSAGES
+
+POE::Component::Client::DNS responds in one of two ways.  Its
+resolve() method will return a response immediately if it can be found
+in the component's cache.  Otherwise the component posts the response
+back in $_[ARG0].  In either case, the response is a hash reference
+containing the same fields:
+
+  host     => $request_host,
+  type     => $request_type,
+  class    => $request_class,
+  context  => $request_context,
+  response => $net_dns_packet,
+  error    => $net_dns_error,
+
+The "host", "type", "class", and "context" response fields are
+identical to those given in the request message.
+
+"response" contains a Net::DNS::Packet object on success or undef if
+the lookup failed.  The Net::DNS::Packet object describes the response
+to the program's request.  It may contain several DNS records.  Please
+consult L<Net::DNS> and L<Net::DNS::Packet> for more information.
+
+"error" contains a description of any error that has occurred.  It is
+only valid if "response" is undefined.
 
 =head1 SEE ALSO
 
-This component is built upon Net::DNS and POE.  Please see its source
-code and the documentation for its foundation modules to learn more.
+L<POE> - POE::Component::Client::DNS builds heavily on POE.
 
-Also see the test program, t/01_resolve.t, in the PoCo::Client::DNS
-distribution.
+L<Net::DNS> - This module uses Net::DNS internally.
+
+L<Net::DNS::Packet> - Responses are returned as Net::DNS::Packet
+objects.
 
 =head1 BUGS
 
 This component does not yet expose the full power of Net::DNS.
 
+Timeouts have not been tested extensively.  Please contact the author
+if you know of a reliable way to test DNS timeouts.
+
+=head1 DEPRECATIONS
+
+The older, list-based interfaces are no longer documented as of
+version 0.98.  They are being phased out.  The method-based interface,
+first implementedin version 0.98, will replace the deprecated
+interfaces after a six-month phase-out period.
+
+Version 0.98 was released in October of 2004.  The deprecated
+interfaces will continue to work without warnings until January 2005.
+
+As of January 2005, programs that use the deprecated interfaces will
+continue to work, but they will generate mandatory warnings.  Those
+warnings will persist until April 2005.
+
+As of April 2005 the mandatory warnings will be upgraded to mandatory
+errors.  Support for the deprecated interfaces will be removed
+entirely.
+
 =head1 AUTHOR & COPYRIGHTS
 
-POE::Component::Client::DNS is Copyright 1999-2002 by Rocco Caputo.
+POE::Component::Client::DNS is Copyright 1999-2004 by Rocco Caputo.
 All rights are reserved.  POE::Component::Client::DNS is free
 software; you may redistribute it and/or modify it under the same
 terms as Perl itself.
