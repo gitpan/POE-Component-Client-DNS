@@ -1,4 +1,4 @@
-$Id: CHANGES,v 1.3 2000/09/02 20:12:44 rcaputo Exp $
+$Id: CHANGES,v 1.5 2001/10/13 11:03:15 rcaputo Exp $
 
 ============
 Things to do
@@ -15,6 +15,15 @@ marked with "(???)" are just information.
 
 Note to self: Don't forget to tag the version after a new distribution
 is released.  For example: `cvs tag -Rc v1_00 .'
+
+---------------
+0.93 2001.10.13
+---------------
+
+(!!!) Shevek discovered that PoCo::Client::DNS was misusing Net::DNS
+(and worse, documenting how to use it incorrectly).  The docs and
+usage are changed, and while this breaks the way a function was used,
+the old way was broken anyway.
 
 ---------------
 0.92 2001.05.29
