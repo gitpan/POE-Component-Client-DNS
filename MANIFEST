@@ -1,7 +1,8 @@
-# $Id: MANIFEST,v 1.2 2000/09/02 19:51:56 rcaputo Exp $
+# $Id: MANIFEST,v 1.3 2003/04/12 03:53:17 rcaputo Exp $
 CHANGES
 DNS.pm
 MANIFEST
 Makefile.PL
 README
 t/01_resolve.t
+t/02_tag_args.t

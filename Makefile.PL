@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# $Id: Makefile.PL,v 1.5 2002/06/25 14:05:53 rcaputo Exp $
+# $Id: Makefile.PL,v 1.6 2002/09/10 03:30:51 rcaputo Exp $
 
 use ExtUtils::MakeMaker;
 
@@ -8,7 +8,7 @@ open(CHANGES, ">>CHANGES") and close CHANGES;
 
 WriteMakefile
   ( NAME         => 'POE::Component::Client::DNS',
-    AUTHOR       => 'Rocco Caputo <troc+poe@pobox.com>',
+    AUTHOR       => 'Rocco Caputo <rcaputo@cpan.org>',
     ABSTRACT     => 'POE component for non-blocking/concurrent DNS queries.',
     VERSION_FROM => 'DNS.pm',
 
@@ -17,10 +17,10 @@ WriteMakefile
                       Net::DNS => 0.12,
                     },
     dist         =>
-    { COMPRESS => 'gzip -9f',
-      SUFFIX   => 'gz',
-      PREOP    => ( 'echo $PWD;cvs2cl.pl -l "-d\'a year ago<\'" ' .
-                    '--utc --stdout > $(DISTNAME)-$(VERSION)/CHANGES'
-                  ),
+    { COMPRESS   => 'gzip -9f',
+      SUFFIX     => 'gz',
+      PREOP      => ( 'cvs-log.perl | ' .
+                      'tee ./$(DISTNAME)-$(VERSION)/CHANGES > ./CHANGES'
+                    ),
     },
   );
