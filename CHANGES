@@ -1,4 +1,18 @@
 =========================
+2004-02-02 21:29:34 v0_97
+=========================
+
+  2004-02-02 21:29:34 by rcaputo; DNS.pm 1.14
+
+    Bump release to 0.97. 
+
+  2003-11-26 20:49:39 by rcaputo; DNS.pm 1.13; t/02_tag_args.t 1.2
+
+    Net::DNS::Resolver's bgsend() sometimes fails and returns undef
+    instead of a socket handle. This commit adds automatic retrying when
+    bgsend() fails, up to the timeout period. 
+
+=========================
 2003-11-22 06:34:07 v0_96
 =========================
 
