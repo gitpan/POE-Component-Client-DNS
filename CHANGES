@@ -1,58 +1,42 @@
-$Id: CHANGES,v 1.5 2001/10/13 11:03:15 rcaputo Exp $
+2002-06-28 16:04  rcaputo
 
-============
-Things to do
-============
+	* DNS.pm: Shevek reported a problem with getpeername() failing.  I
+	added code to test the intermediate results from getpeername() so
+	that internal errors would be avoided if it fails.
 
-Nothing at the moment.
+2002-06-28 16:03  rcaputo
 
-================================================
-Revision history for POE::Component::Client::DNS
-================================================
+	* README: Add a note to the requirements.  This module must be
+	tested with a valid name server available.
 
-Changes marked with "(!!!)" may break backward compatibility.  Changes
-marked with "(???)" are just information.
+2002-06-25 14:08  rcaputo
 
-Note to self: Don't forget to tag the version after a new distribution
-is released.  For example: `cvs tag -Rc v1_00 .'
+	* CHANGES: Removed CHANGES.  Now we use cvs2cl to generate it at
+	distribution time.  Thanks again to Matt Cashner (sungo) for this
+	advice.
 
----------------
-0.93 2001.10.13
----------------
+2002-06-25 14:07  rcaputo
 
-(!!!) Shevek discovered that PoCo::Client::DNS was misusing Net::DNS
-(and worse, documenting how to use it incorrectly).  The docs and
-usage are changed, and while this breaks the way a function was used,
-the old way was broken anyway.
+	* DNS.pm: Eric Cholet discovered that _default was returning 1. 
+	That causes bad things in POE's new "three-phase" signal dispatch. 
+	Namely, it means the entire program would never exit on a signal. 
+	Gah!  Changed it to return 0 instead, which lets some other part of
+	the program decide if things should die.
 
----------------
-0.92 2001.05.29
----------------
+2002-06-25 14:05  rcaputo
 
-As far as I can tell, Net::DNS::Resolver doesn't set the answerfrom
-field in Net::DNS::Packet objects received with bgread.  The DNS
-component now does this.
+	* Makefile.PL: Fix my e-mail address. :)
 
----------------
-0.91 2000.09.02
----------------
+2002-06-25 13:59  rcaputo
 
-On crysflame's recommendation, I moved the DNS.pm file out of
-POE/Component/Client and added a PM directive to Makefile.PL.  Now
-DNS.pm gets installed.  Fixed the MANIFEST and cleaned up Makefile.PL
-a little while I was in there.
+	* Makefile.PL: Add cvs2cl to the makefile builder so we don't need
+	to manage CHANGES ourselves anymore.  Yay!
 
----------------
-0.90 2000.08.29
----------------
+2001-10-13 11:03  rcaputo
 
-Initial release.  Arbitrarily versioned at 0.90 to indicate pretty
-good stability but the need for some beta testing.
+	* CHANGES, DNS.pm: fix how Net::DNS is used
 
-Extracted the code from a medium-sized hack I wrote to look up
-addresses for long lists of domains, cleaned it up, made the interface
-more useful, commented the code, documented it, and made it a module.
+2001-10-13 11:03  rcaputo
 
-===========================
-EOF: Thank you for reading.
-===========================
+	* README: general revisions
+

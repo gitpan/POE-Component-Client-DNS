@@ -1,4 +1,4 @@
-# $Id: DNS.pm,v 1.4 2001/10/13 11:03:15 rcaputo Exp $
+# $Id: DNS.pm,v 1.6 2002/06/28 16:04:36 rcaputo Exp $
 # License and documentation are after __END__.
 
 package POE::Component::Client::DNS;
@@ -6,7 +6,7 @@ package POE::Component::Client::DNS;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '0.93';
+$VERSION = '0.94';
 
 use Carp qw(croak);
 
@@ -109,9 +109,9 @@ sub poco_dns_default {
     $postback->(undef, 'timeout');
   }
 
-  # Return 1 in case we've caught a signal.  We'll handle them all,
-  # which will keep us alive until all our clients are gone.
-  return 1;
+  # Be sure not to handle signals.  This will let some other part of
+  # the program decide whether we're to go away.
+  return 0;
 }
 
 # A resolver query generated a response.  Post the reply back.
@@ -128,14 +128,16 @@ sub poco_dns_response {
   my $packet = $heap->{resolver}->bgread($resolver_socket);
 
   # Set the packet's answerfrom field, if the packet was received ok
-  # and an answerfrom isn't already included.
+  # and an answerfrom isn't already included.  This uses the
+  # documented peerhost() method
+
   if (defined $packet and !defined $packet->answerfrom) {
-    $packet->answerfrom
-      ( inet_ntoa( (unpack_sockaddr_in( getpeername($resolver_socket)
-                                      )
-                   )[1]
-                 )
-      );
+    my $answerfrom = getpeername($resolver_socket);
+    if (defined $answerfrom) {
+      $answerfrom = (unpack_sockaddr_in($answerfrom))[1];
+      $answerfrom = inet_ntoa($answerfrom);
+      $packet->answerfrom($answerfrom);
+    }
   }
 
   # Retrieve the postback for this request.

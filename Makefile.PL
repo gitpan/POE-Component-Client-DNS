@@ -1,11 +1,14 @@
 #!/usr/bin/perl
-# $Id: Makefile.PL,v 1.3 2000/09/02 20:12:44 rcaputo Exp $
+# $Id: Makefile.PL,v 1.5 2002/06/25 14:05:53 rcaputo Exp $
 
 use ExtUtils::MakeMaker;
 
+# Touch CHANGES so it exists.
+open(CHANGES, ">>CHANGES") and close CHANGES;
+
 WriteMakefile
   ( NAME         => 'POE::Component::Client::DNS',
-    AUTHOR       => 'Rocco Caputo <troc+poe@netrus.net>',
+    AUTHOR       => 'Rocco Caputo <troc+poe@pobox.com>',
     ABSTRACT     => 'POE component for non-blocking/concurrent DNS queries.',
     VERSION_FROM => 'DNS.pm',
 
@@ -13,7 +16,11 @@ WriteMakefile
     PREREQ_PM    => { POE      => 0.11,
                       Net::DNS => 0.12,
                     },
-    dist         => { COMPRESS => 'gzip -9f',
-                      SUFFIX   => 'gz',
-                    },
+    dist         =>
+    { COMPRESS => 'gzip -9f',
+      SUFFIX   => 'gz',
+      PREOP    => ( 'echo $PWD;cvs2cl.pl -l "-d\'a year ago<\'" ' .
+                    '--utc --stdout > $(DISTNAME)-$(VERSION)/CHANGES'
+                  ),
+    },
   );
