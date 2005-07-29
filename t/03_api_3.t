@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: 03_api_3.t,v 1.2 2004/10/07 01:23:08 rcaputo Exp $
+# $Id: 03_api_3.t 37 2004-10-07 01:23:08Z rcaputo $
 
 # Test the version 3 API.
 

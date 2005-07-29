@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: 01_resolve.t,v 1.3 2003/11/22 05:33:01 rcaputo Exp $
+# $Id: 01_resolve.t 28 2003-11-22 05:33:01Z rcaputo $
 
 use strict;
 

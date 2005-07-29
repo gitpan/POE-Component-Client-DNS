@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: 04_errors.t,v 1.2 2004/10/07 03:04:31 rcaputo Exp $
+# $Id: 04_errors.t 40 2004-10-07 03:04:31Z rcaputo $
 
 # Deliberately trigger errors.
 

@@ -1,8 +1,7 @@
-# $Id: MANIFEST,v 1.6 2004/10/07 03:04:31 rcaputo Exp $
+# $Id: MANIFEST 45 2005-07-07 22:07:27Z rcaputo $
 CHANGES
 DNS.pm
 MANIFEST
-META.yml                                 Module meta-data (added by MakeMaker)
 Makefile.PL
 README
 t/01_resolve.t
@@ -10,3 +9,5 @@ t/02_tag_args.t
 t/03_api_3.t
 t/04_errors.t
 t/05_api_4.t
+t/06_hosts.t
+META.yml                                 Module meta-data (added by MakeMaker)
