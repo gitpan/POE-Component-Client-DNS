@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# $Id: 06_hosts.t 45 2005-07-07 22:07:27Z rcaputo $
+# $Id: 06_hosts.t 50 2005-08-01 17:06:41Z rcaputo $
 # vim: filetype=perl
 
 # Test the hosts file stuff.
@@ -49,6 +49,7 @@ sub response_no_hosts {
   );
 
   # 2. Test with a hosts file that contains a host match.
+  unlink HOSTS_FILE;  # Changes inode!
   open(HF, ">" . HOSTS_FILE) or die "couldn't write hosts file: $!";
   print HF "123.456.789.012 poe.perl.org\n";
   close HF;

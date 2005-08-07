@@ -1,6 +1,23 @@
-==============================
-9999-99-99 99:99:99 (untagged)
-==============================
+===========================
+2005-08-07 22:37:35 v0_9802
+===========================
+
+  2005-08-01 17:07:05 (r51) by rcaputo; DNS.pm M
+
+    Make the hosts file size significant when checking for changes. 
+
+  2005-08-01 17:06:41 (r50) by rcaputo; t/06_hosts.t M
+
+    Force an inode change in the tests, although this doesn't really have
+    an effect. 
+
+  2005-08-01 17:02:16 (r49) by rcaputo; Makefile.PL M
+
+    Update dependencies to match newest modules. 
+
+===========================
+2005-07-29 15:49:17 v0_9801
+===========================
 
   2005-07-29 15:41:12 (r47) by rcaputo; DNS.pm M
 
