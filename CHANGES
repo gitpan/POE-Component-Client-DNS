@@ -1,4 +1,14 @@
 ===========================
+2005-12-05 18:36:03 v0_9803
+===========================
+
+  2005-12-05 18:34:05 (r53) by rcaputo; t/04_errors.t M
+
+    Add the CATCH_EXCEPTIONS toggle that lets me catch my own damn
+    errors. Sweet! Also expanded the common test code so that line
+    numbers would be properly reported. 
+
+===========================
 2005-08-07 22:37:35 v0_9802
 ===========================
 
@@ -50,67 +60,6 @@
     working copy.
     
     Change cvs-log.perl to svn-log.perl in Makefile.PL. 
-
-=========================
-2004-10-07 03:34:35 v0_98
-=========================
-
-  2004-10-07 03:34:35 (r42) by rcaputo; DNS.pm M
-
-    Bump the version to 0.98 for release, and document the deprecations
-    more carefully. 
-
-  2004-10-07 03:16:45 (r41) by rcaputo; DNS.pm M
-
-    Add code to look for /etc/hosts in various other places on Windows
-    systems. Oh, the horrors! 
-
-  2004-10-07 03:04:31 (r40) by rcaputo
-  t/04_errors.t M; t/05_api_4.t A; MANIFEST M
-
-    Added new tests to cover the additional public interface. 
-
-  2004-10-07 03:03:42 (r39) by rcaputo; DNS.pm M
-
-    Added the "version 4" interface, which is just a method in front of
-    the "version 3" interface. The method-based interface lets us build a
-    resolver cache later. The component will be able to return resolver
-    answers from the cache without incurring any POE event loop overhead.
-    
-    Documented the new interface. Updated the SYNOPSIS to show it. Tested
-    the SYNOPSIS code.
-    
-    Changed the private event handler names to include a leading
-    underscore, so that Pod::Coverage will automatically discount them in
-    its reports.
-    
-    Switched to object methods as event handlers. Moved the HEAP data
-    into $self. This lets us get at the data members from the public
-    object methods and the public/private event handlers. 
-
-  2004-10-07 01:23:43 (r38) by rcaputo; DNS.pm M
-
-    Rewrite the documentation to explain the new interface. 
-
-  2004-10-07 01:23:08 (r37) by rcaputo; t/03_api_3.t M
-
-    Remove some unnecessary code from this test. A previous test was
-    copied as the basis for this one, and some useless code came along. 
-
-  2004-10-06 18:06:11 (r36) by rcaputo
-  DNS.pm M; t/03_api_3.t A; t/04_errors.t A; MANIFEST M; Makefile.PL M
-
-    Add a saner (currently undocumented) API, and maintain backward
-    compatibility. Increase test coverage to >80%. 
-
-  2004-06-12 16:51:31 (r35) by rcaputo; DNS.pm M
-
-    "Overlord Q" reported a syntax error in the SYNOPSIS. This change
-    corrects the mistake and improves the code's readability. 
-
-  2004-02-13 02:21:12 (r34) by rcaputo; MANIFEST M
-
-    Add META.yml to the MANIFEST. 
 
 ==============
 End of Excerpt
