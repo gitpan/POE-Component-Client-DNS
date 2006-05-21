@@ -1,3 +1,29 @@
+=========================
+2006-05-21 20:45:46 v0_99
+=========================
+
+  2006-05-21 20:45:11 (r58) by rcaputo; DNS.pm M
+
+    Bump up the version. 
+
+  2006-05-21 20:44:39 (r57) by rcaputo; DNS.pm M
+
+    Fix shutdown(). It was not performing nearly enough cleanup.
+    
+    Replace some post() calls with call() to avoid race conditions. In
+    general, method interfaces should use call() rather than post() so
+    that they affect internal structures synchronously. 
+
+  2006-05-21 20:43:08 (r56) by rcaputo
+  t/02_tag_args.t M; t/03_api_3.t M; t/05_api_4.t M; t/06_hosts.t M
+
+    Turn on ASSERT_DEFAULT for some of the tests. Add _stop handlers so
+    they don't fail with all POE asserts on. 
+
+  2006-03-24 03:58:51 (r55) by rcaputo; DNS.pm M
+
+    Belatedly bump up the version. 
+
 ===========================
 2005-12-05 18:36:03 v0_9803
 ===========================

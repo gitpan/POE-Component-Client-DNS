@@ -1,11 +1,12 @@
 #!/usr/bin/perl
-# $Id: 06_hosts.t 50 2005-08-01 17:06:41Z rcaputo $
+# $Id: 06_hosts.t 56 2006-05-21 20:43:08Z rcaputo $
 # vim: filetype=perl
 
 # Test the hosts file stuff.
 
 use warnings;
 use strict;
+sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE qw(Component::Client::DNS);
 use Test::More tests => 3;
 
@@ -20,6 +21,7 @@ my $resolver = POE::Component::Client::DNS->spawn(
 POE::Session->create(
   inline_states  => {
     _start                 => \&start_tests,
+    _stop                  => sub { }, # avoid assert problems
     response_no_hosts      => \&response_no_hosts,
     response_hosts_match   => \&response_hosts_match,
     response_hosts_nomatch => \&response_hosts_nomatch,
