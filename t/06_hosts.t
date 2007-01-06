@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# $Id: 06_hosts.t 56 2006-05-21 20:43:08Z rcaputo $
+# $Id: 06_hosts.t 61 2006-10-17 16:35:24Z rcaputo $
 # vim: filetype=perl
 
 # Test the hosts file stuff.
@@ -99,6 +99,7 @@ sub response_hosts_nomatch {
 
 sub a_data {
   my $response = shift;
+  return "" unless defined $response->{response};
 
   return (
     grep { ref() eq "Net::DNS::RR::A" } $response->{response}->answer()

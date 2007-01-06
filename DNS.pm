@@ -1,4 +1,4 @@
-# $Id: DNS.pm 58 2006-05-21 20:45:11Z rcaputo $
+# $Id: DNS.pm 64 2007-01-06 18:12:47Z rcaputo $
 # License and documentation are after __END__.
 
 package POE::Component::Client::DNS;
@@ -6,7 +6,7 @@ package POE::Component::Client::DNS;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '0.99';
+$VERSION = '1.00';
 
 use Carp qw(croak);
 
@@ -520,6 +520,13 @@ sub check_hosts_file {
   return $self->[SF_HOSTS_CACHE]{$host};
 }
 
+### NOT A POE EVENT HANDLER
+
+sub get_resolver {
+  my $self = shift;
+  return $self->[SF_RESOLVER];
+}
+
 1;
 
 __END__
@@ -672,6 +679,16 @@ required, and may contain anything that fits in a scalar.
 
 shutdown() causes the component to terminate gracefully. It will finish
 serving pending requests then close down.
+
+=item get_resolver
+
+POE::Component::Client::DNS uses a Net::DNS::Resolver object
+internally.  get_resolver() returns that object so it may be
+interrogated or modified.  See L<Net::DNS::Resolver> for options.
+
+Set the resolver to check on nonstandard port 1153:
+
+  $poco_client_dns->resolver()->port(1153);
 
 =head1 RESPONSE MESSAGES
 

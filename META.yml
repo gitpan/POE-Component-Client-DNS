@@ -1,15 +1,16 @@
 --- #YAML:1.0
 name:                POE-Component-Client-DNS
-version:             0.99
+version:             1.00
 abstract:            Non-blocking/concurrent DNS queries using Net::DNS and POE
-license:             unknown
-generated_by:        ExtUtils::MakeMaker version 6.30_01
-author:              Rocco Caputo <rcaputo@cpan.org>
+license:             perl
+generated_by:        ExtUtils::MakeMaker version 6.31
 distribution_type:   module
 requires:     
-    Net::DNS:                      0.53
+    Net::DNS:                      0.59
     POE:                           0.31
     Test::More:                    0
 meta-spec:
-    url: <http://module-build.sourceforge.net/META-spec-new.html>;
-    version: 1.1
+    url:     http://module-build.sourceforge.net/META-spec-v1.2.html
+    version: 1.2
+author:
+    - Rocco Caputo <rcaputo@cpan.org>

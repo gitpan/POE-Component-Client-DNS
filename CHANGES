@@ -1,3 +1,32 @@
+======================================
+9999-99-99 99:99:99.999999Z (untagged)
+======================================
+
+  2007-01-06 18:12:47 (r64) by rcaputo; DNS.pm M
+
+    By the power of PAUSEskull, this is a fine morning! Release 1.00! 
+
+  2007-01-06 18:11:52 (r63) by rcaputo; DNS.pm M
+
+    Expose the underlying Net::DNS::Resolver with a get_resolver()
+    accessor. Thanks to Chris Williams for kinda suggesting it. :) 
+
+  2006-11-06 19:23:35 (r62) by rcaputo; Makefile.PL M
+
+    Set a LICENSE. Cheap kwalitee points!
+
+  2006-10-17 16:35:24 (r61) by rcaputo; t/06_hosts.t M
+
+    Don't try to call a method on a failed request. Resolves rt.cpan.org
+    21190 by Alexandr Ciornii. 
+
+  2006-10-17 15:05:34 (r60) by rcaputo; Makefile.PL M
+
+    Some rt.cpan.org tickets refer to issues in Net::DNS. Require the
+    latest version of that dependency in the hopes that some things are
+    fixed. Too bad I don't have test cases for those issues... there's no
+    way for me to tell if anything's fixed by this simple change. 
+
 =========================
 2006-05-21 20:45:46 v0_99
 =========================
@@ -23,69 +52,6 @@
   2006-03-24 03:58:51 (r55) by rcaputo; DNS.pm M
 
     Belatedly bump up the version. 
-
-===========================
-2005-12-05 18:36:03 v0_9803
-===========================
-
-  2005-12-05 18:34:05 (r53) by rcaputo; t/04_errors.t M
-
-    Add the CATCH_EXCEPTIONS toggle that lets me catch my own damn
-    errors. Sweet! Also expanded the common test code so that line
-    numbers would be properly reported. 
-
-===========================
-2005-08-07 22:37:35 v0_9802
-===========================
-
-  2005-08-01 17:07:05 (r51) by rcaputo; DNS.pm M
-
-    Make the hosts file size significant when checking for changes. 
-
-  2005-08-01 17:06:41 (r50) by rcaputo; t/06_hosts.t M
-
-    Force an inode change in the tests, although this doesn't really have
-    an effect. 
-
-  2005-08-01 17:02:16 (r49) by rcaputo; Makefile.PL M
-
-    Update dependencies to match newest modules. 
-
-===========================
-2005-07-29 15:49:17 v0_9801
-===========================
-
-  2005-07-29 15:41:12 (r47) by rcaputo; DNS.pm M
-
-    Bump version for release. 
-
-  2005-07-28 05:59:31 (r46) by rcaputo; DNS.pm M
-
-    Some systems include IPv4 and IPv6 addresses for "localhost". OS X is
-    one of them. This commit causes the component to prefer IPv4
-    addresses when there's a choice. It's a bad fix, but it'll have to do
-    for now. We really should check whether the request is for an A or
-    AAAA record and use the appropriate address. 
-
-  2005-07-07 22:07:27 (r45) by rcaputo
-  DNS.pm M; MANIFEST M; t/06_hosts.t A
-
-    Cache /etc/hosts (or its equivalent) in memory. This should save some
-    CPU and disk access, even though the module must stat() /etc/hosts
-    for each request. This closes rt.cpan.org ticket 7916.
-    
-    Let the user supply an /etc/hosts (or equivalent) file at component
-    creation time. This lets them find hosts files in obscure locations,
-    plus it lets us write a test that verifies the caching logic by using
-    specific hosts files. This closes rt.cpan.org ticket 13581. 
-
-  2005-06-21 13:38:43 (r44) by rcaputo; MANIFEST M; Makefile.PL M
-
-    Remove META.yml from MANIFEST. It seems that "make dist" inserts it
-    and creates a META.yml file in the distribution but not in the
-    working copy.
-    
-    Change cvs-log.perl to svn-log.perl in Makefile.PL. 
 
 ==============
 End of Excerpt

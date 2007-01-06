@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# $Id: Makefile.PL 49 2005-08-01 17:02:16Z rcaputo $
+# $Id: Makefile.PL 62 2006-11-06 19:23:35Z rcaputo $
 
 use ExtUtils::MakeMaker;
 
@@ -10,11 +10,12 @@ WriteMakefile(
   NAME         => 'POE::Component::Client::DNS',
   AUTHOR       => 'Rocco Caputo <rcaputo@cpan.org>',
   ABSTRACT     => 'Non-blocking/concurrent DNS queries using Net::DNS and POE',
+  LICENSE      => 'perl',
   VERSION_FROM => 'DNS.pm',
   PM           => { 'DNS.pm' => '$(INST_LIBDIR)/DNS.pm' },
   PREREQ_PM    => {
     'POE'        => 0.31,
-    'Net::DNS'   => 0.53,
+    'Net::DNS'   => 0.59,
     'Test::More' => 0,
   },
   dist         => {
