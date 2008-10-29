@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# $Id: 06_hosts.t 61 2006-10-17 16:35:24Z rcaputo $
+# $Id: 06_hosts.t 67 2008-10-15 03:18:31Z rcaputo $
 # vim: filetype=perl
 
 # Test the hosts file stuff.
@@ -9,6 +9,9 @@ use strict;
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE qw(Component::Client::DNS);
 use Test::More tests => 3;
+
+require Net::DNS;
+my $can_resolve = Net::DNS::Resolver->new->search("poe.perl.org");
 
 use constant HOSTS_FILE => "./test-hosts";
 
@@ -45,10 +48,14 @@ sub start_tests {
 sub response_no_hosts {
   my $response = $_[ARG0];
   my $address = a_data($response);
-  ok(
-    $address eq "66.33.204.143",
-    "lookup without hosts file ($address)"
-  );
+  SKIP: {
+    skip "Can't resolve with Net::DNS, network probably not available", 1
+      unless($can_resolve);
+    ok(
+      ($address eq "67.207.145.70") || ($address eq "208.97.190.64"),
+      "lookup with no hosts file ($address)"
+    );
+  }
 
   # 2. Test with a hosts file that contains a host match.
   unlink HOSTS_FILE;  # Changes inode!
@@ -68,7 +75,7 @@ sub response_hosts_match {
   my $address = a_data($response);
   ok(
     $address eq "123.456.789.012",
-    "lookup without hosts file match ($address)"
+    "lookup when hosts file matches ($address)"
   );
 
   # 3. Test against a hosts file without a host match.
@@ -87,10 +94,14 @@ sub response_hosts_match {
 sub response_hosts_nomatch {
   my $response = $_[ARG0];
   my $address = a_data($response);
-  ok(
-    $address eq "66.33.204.143",
-    "lookup without hosts file match ($address)"
-  );
+  SKIP: {
+    skip "Can't resolve with Net::DNS, network probably not available", 1
+      unless($can_resolve);
+    ok(
+      ($address eq "67.207.145.70") || ($address eq "208.97.190.64"),
+      "lookup with hosts file but no match ($address)"
+    );
+  }
 
   unlink HOSTS_FILE;
 }

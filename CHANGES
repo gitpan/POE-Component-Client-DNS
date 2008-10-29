@@ -1,57 +1,19 @@
-======================================
-9999-99-99 99:99:99.999999Z (untagged)
-======================================
+=================================
+2008-10-29T16:19:41.680362Z v1_01
+=================================
 
-  2007-01-06 18:12:47 (r64) by rcaputo; DNS.pm M
+  2008-10-29 16:18:54 (r68) by rcaputo; DNS.pm M
 
-    By the power of PAUSEskull, this is a fine morning! Release 1.00! 
+    New version.
 
-  2007-01-06 18:11:52 (r63) by rcaputo; DNS.pm M
+  2008-10-15 03:18:31 (r67) by rcaputo; t/06_hosts.t M
 
-    Expose the underlying Net::DNS::Resolver with a get_resolver()
-    accessor. Thanks to Chris Williams for kinda suggesting it. :) 
+    Accommodate DNS change for poe.perl.org in the tests.
 
-  2006-11-06 19:23:35 (r62) by rcaputo; Makefile.PL M
+  2008-03-24 17:33:22 (r66) by rcaputo; t/06_hosts.t M
 
-    Set a LICENSE. Cheap kwalitee points!
-
-  2006-10-17 16:35:24 (r61) by rcaputo; t/06_hosts.t M
-
-    Don't try to call a method on a failed request. Resolves rt.cpan.org
-    21190 by Alexandr Ciornii. 
-
-  2006-10-17 15:05:34 (r60) by rcaputo; Makefile.PL M
-
-    Some rt.cpan.org tickets refer to issues in Net::DNS. Require the
-    latest version of that dependency in the hopes that some things are
-    fixed. Too bad I don't have test cases for those issues... there's no
-    way for me to tell if anything's fixed by this simple change. 
-
-=========================
-2006-05-21 20:45:46 v0_99
-=========================
-
-  2006-05-21 20:45:11 (r58) by rcaputo; DNS.pm M
-
-    Bump up the version. 
-
-  2006-05-21 20:44:39 (r57) by rcaputo; DNS.pm M
-
-    Fix shutdown(). It was not performing nearly enough cleanup.
-    
-    Replace some post() calls with call() to avoid race conditions. In
-    general, method interfaces should use call() rather than post() so
-    that they affect internal structures synchronously. 
-
-  2006-05-21 20:43:08 (r56) by rcaputo
-  t/02_tag_args.t M; t/03_api_3.t M; t/05_api_4.t M; t/06_hosts.t M
-
-    Turn on ASSERT_DEFAULT for some of the tests. Add _stop handlers so
-    they don't fail with all POE asserts on. 
-
-  2006-03-24 03:58:51 (r55) by rcaputo; DNS.pm M
-
-    Belatedly bump up the version. 
+    Apply Martin Ferrari's patch to skip network tests if there's no
+    detectable network. Resolves rt.cpan.org ticket 33677. 
 
 ==============
 End of Excerpt

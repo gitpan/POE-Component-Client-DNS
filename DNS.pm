@@ -1,4 +1,4 @@
-# $Id: DNS.pm 64 2007-01-06 18:12:47Z rcaputo $
+# $Id: DNS.pm 68 2008-10-29 16:18:54Z rcaputo $
 # License and documentation are after __END__.
 
 package POE::Component::Client::DNS;
@@ -6,7 +6,7 @@ package POE::Component::Client::DNS;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '1.00';
+$VERSION = '1.01';
 
 use Carp qw(croak);
 
