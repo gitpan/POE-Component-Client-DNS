@@ -1,4 +1,19 @@
 =================================
+2009-02-18T04:48:37.232115Z v1_03
+=================================
+
+  2009-02-18 04:48:06 (r73) by rcaputo; DNS.pm M; t/04_errors.t M
+
+    Fix warnings uncovered by POE's recent global-warning issue. 
+
+  2009-02-02 07:50:33 (r72) by hachi; DNS.pm M
+
+    Make it safe to have more than one PoCoDNS object.
+    
+    Somehow this bug has been no problem for people this entire time. An
+    amazing trick really :D
+
+=================================
 2009-01-13T20:18:27.751944Z v1_02
 =================================
 

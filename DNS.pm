@@ -1,4 +1,4 @@
-# $Id: DNS.pm 70 2009-01-13 20:08:27Z rcaputo $
+# $Id: DNS.pm 73 2009-02-18 04:48:06Z rcaputo $
 # License and documentation are after __END__.
 
 package POE::Component::Client::DNS;
@@ -6,7 +6,7 @@ package POE::Component::Client::DNS;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '1.02';
+$VERSION = '1.03';
 
 use Carp qw(croak);
 
@@ -15,11 +15,6 @@ use Net::DNS;
 use POE;
 
 use constant DEBUG => 0;
-
-# Keep track of requests for each response socket.  Used to pass data
-# around select_read().
-
-my %req_by_socket;
 
 # A hosts file we found somewhere.
 
@@ -38,6 +33,7 @@ sub SF_HOSTS_INODE () { 7 }
 sub SF_HOSTS_CACHE () { 8 }
 sub SF_HOSTS_BYTES () { 9 }
 sub SF_SHUTDOWN    () { 10 }
+sub SF_REQ_BY_SOCK () { 11 }
 
 # Spawn a new PoCo::Client::DNS session.  This basically is a
 # constructor, but it isn't named "new" because it doesn't create a
@@ -286,7 +282,7 @@ sub _dns_do_request {
   # Set a timeout for the request, and watch the response socket for
   # activity.
 
-  $req_by_socket{$resolver_socket} = $req;
+  $self->[SF_REQ_BY_SOCK]->{$resolver_socket} = $req;
 
   $kernel->delay($resolver_socket, $remaining, $resolver_socket);
   $kernel->select_read($resolver_socket, 'got_dns_response');
@@ -298,12 +294,12 @@ sub _dns_do_request {
 # A resolver query timed out.  Post an error back.
 
 sub _dns_default {
-  my ($kernel, $event, $args) = @_[KERNEL, ARG0, ARG1];
+  my ($self, $kernel, $event, $args) = @_[OBJECT, KERNEL, ARG0, ARG1];
   my $socket = $args->[0];
 
   return unless defined($socket) and $event eq $socket;
 
-  my $req = delete $req_by_socket{$socket};
+  my $req = delete $self->[SF_REQ_BY_SOCK]->{$socket};
   return unless $req;
 
   # Stop watching the socket.
@@ -325,7 +321,7 @@ sub _dns_default {
 sub _dns_response {
   my ($self, $kernel, $socket) = @_[OBJECT, KERNEL, ARG0];
 
-  my $req = delete $req_by_socket{$socket};
+  my $req = delete $self->[SF_REQ_BY_SOCK]->{$socket};
   return unless $req;
 
   # Turn off the timeout for this request, and stop watching the
@@ -361,9 +357,9 @@ sub _dns_shutdown {
   my ($self, $kernel) = @_[OBJECT, KERNEL];
 
   # Clean up all pending socket timeouts and selects.
-  foreach my $socket (keys %req_by_socket) {
+  foreach my $socket (keys %{$self->[SF_REQ_BY_SOCK]}) {
     DEBUG and warn "SHT: Shutting down resolver socket $socket";
-    my $req = delete $req_by_socket{$socket};
+    my $req = delete $self->[SF_REQ_BY_SOCK]->{$socket};
 
     $kernel->delay($socket);
     $kernel->select($req->{resolver_socket});
@@ -478,10 +474,10 @@ sub check_hosts_file {
   # Reload the hosts file if times have changed.
   my ($inode, $bytes, $mtime, $ctime) = (stat $use_hosts_file)[1, 7, 9,10];
   unless (
-    $self->[SF_HOSTS_MTIME] == $mtime and
-    $self->[SF_HOSTS_CTIME] == $ctime and
-    $self->[SF_HOSTS_INODE] == $inode and
-    $self->[SF_HOSTS_BYTES] == $bytes
+    $self->[SF_HOSTS_MTIME] == ($mtime || -1) and
+    $self->[SF_HOSTS_CTIME] == ($ctime || -1) and
+    $self->[SF_HOSTS_INODE] == ($inode || -1) and
+    $self->[SF_HOSTS_BYTES] == ($bytes || -1)
   ) {
     return unless open(HOST, "<", $use_hosts_file);
 
