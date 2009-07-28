@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# $Id: Makefile.PL 62 2006-11-06 19:23:35Z rcaputo $
+# $Id: Makefile.PL 79 2009-07-28 06:01:07Z rcaputo $
 
 use ExtUtils::MakeMaker;
 
@@ -14,9 +14,15 @@ WriteMakefile(
   VERSION_FROM => 'DNS.pm',
   PM           => { 'DNS.pm' => '$(INST_LIBDIR)/DNS.pm' },
   PREREQ_PM    => {
-    'POE'        => 0.31,
+    'POE'        => 1.007,
     'Net::DNS'   => 0.59,
     'Test::More' => 0,
+  },
+  META_ADD     => {
+    resources  => {
+      license    => 'http://dev.perl.org/licenses/',
+      repository => 'http://thirdlobe.com/svn/poco-client-dns/trunk'
+    },
   },
   dist         => {
     COMPRESS   => 'gzip -9f',

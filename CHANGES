@@ -1,4 +1,38 @@
 =================================
+2009-07-28T06:01:31.124742Z v1_04
+=================================
+
+  2009-07-28 06:01:07 (r79) by rcaputo; DNS.pm M; Makefile.PL M
+
+    Use latest POE, and prepare for a new release.
+
+  2009-07-27 04:51:28 (r78) by rcaputo; DNS.pm M; Makefile.PL M
+
+    Added a machine-readable repository directory to the distribution.
+    Documented the bug tracker, repository, and other resource URLs. 
+
+  2009-07-26 06:30:34 (r77) by rcaputo; DNS.pm M; t/06_hosts.t M
+
+    Resolve (heh) rt.cpan.org ticket #13899. AAAA requests will check for
+    IPv6 addresses in /etc/hosts or your favorite operating system's
+    equivalent. 
+
+  2009-07-26 05:59:34 (r76) by rcaputo; DNS.pm M
+
+    Resolve rt.cpan.org ticket #13492 by Sébastien Aperghis-Tramoni,
+    #14723 by Branislav Gerzo, and umbrella ticket #15009 by cycling
+    through the list of resolvers known to Net::DNS if the top one times
+    out. 
+
+  2009-02-18 05:41:14 (r75) by rcaputo; t/06_hosts.t M
+
+    Applied a patch by René Mayorga, resolving rt.cpan.org ticket 41313.
+    René's patch uses Net::DNS to find poe.perl.org's address and use
+    that instead of hardcoded values. Thanks also go to René for
+    submitting the patch through rt.cpan.org. I may never have discovered
+    ticket 506915 on bugs.debian.org. 
+
+=================================
 2009-02-18T04:48:37.232115Z v1_03
 =================================
 

@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# $Id: 06_hosts.t 70 2009-01-13 20:08:27Z rcaputo $
+# $Id: 06_hosts.t 77 2009-07-26 06:30:34Z rcaputo $
 # vim: filetype=perl
 
 # Test the hosts file stuff.
@@ -8,10 +8,17 @@ use warnings;
 use strict;
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE qw(Component::Client::DNS);
-use Test::More tests => 3;
+use Test::More tests => 4;
 
 require Net::DNS;
 my $can_resolve = Net::DNS::Resolver->new->search("poe.perl.org");
+
+my %target_address;
+if ($can_resolve) {
+  foreach ($can_resolve->answer()) {
+    $target_address{$_->address} = 1 if $_->type eq "A";
+  }
+}
 
 use constant HOSTS_FILE => "./test-hosts";
 
@@ -23,11 +30,12 @@ my $resolver = POE::Component::Client::DNS->spawn(
 
 POE::Session->create(
   inline_states  => {
-    _start                 => \&start_tests,
-    _stop                  => sub { }, # avoid assert problems
-    response_no_hosts      => \&response_no_hosts,
-    response_hosts_match   => \&response_hosts_match,
-    response_hosts_nomatch => \&response_hosts_nomatch,
+    _start                  => \&start_tests,
+    _stop                   => sub { }, # avoid assert problems
+    response_no_hosts       => \&response_no_hosts,
+    response_hosts_match_v4 => \&response_hosts_match_v4,
+    response_hosts_match_v6 => \&response_hosts_match_v6,
+    response_hosts_nomatch  => \&response_hosts_nomatch,
   }
 );
 
@@ -52,7 +60,7 @@ sub response_no_hosts {
     skip "Can't resolve with Net::DNS, network probably not available", 1
       unless($can_resolve);
     ok(
-      ($address eq "67.207.145.70") || ($address eq "208.97.190.64"),
+      exists $target_address{$address},
       "lookup with no hosts file ($address)"
     );
   }
@@ -61,21 +69,39 @@ sub response_no_hosts {
   unlink HOSTS_FILE;  # Changes inode!
   open(HF, ">" . HOSTS_FILE) or die "couldn't write hosts file: $!";
   print HF "123.45.67.89 poe.perl.org\n";
+  print HF "::1 hocallost\n";
   close HF;
 
   $resolver->resolve(
-    event   => "response_hosts_match",
+    event   => "response_hosts_match_v4",
     host    => "poe.perl.org",
     context => "whatever",
   );
 }
 
-sub response_hosts_match {
+sub response_hosts_match_v4 {
   my $response = $_[ARG0];
   my $address = a_data($response);
+
   ok(
     $address eq "123.45.67.89",
     "lookup when hosts file matches ($address)"
+  );
+
+  $resolver->resolve(
+    event   => "response_hosts_match_v6",
+    host    => "hocallost",
+    context => "whatever",
+    type    => "AAAA",
+  );
+}
+
+sub response_hosts_match_v6 {
+  my $response = $_[ARG0];
+  my $address = aaaa_data($response);
+  ok(
+    $address eq "0:0:0:0:0:0:0:1",
+    "ipv6 lookup when hosts file matches ($address)"
   );
 
   # 3. Test against a hosts file without a host match.
@@ -98,7 +124,7 @@ sub response_hosts_nomatch {
     skip "Can't resolve with Net::DNS, network probably not available", 1
       unless($can_resolve);
     ok(
-      ($address eq "67.207.145.70") || ($address eq "208.97.190.64"),
+      exists $target_address{$address},
       "lookup with hosts file but no match ($address)"
     );
   }
@@ -106,7 +132,7 @@ sub response_hosts_nomatch {
   unlink HOSTS_FILE;
 }
 
-### Not a POE event handler.
+### Not POE event handlers.
 
 sub a_data {
   my $response = shift;
@@ -116,3 +142,14 @@ sub a_data {
     grep { ref() eq "Net::DNS::RR::A" } $response->{response}->answer()
   )[0]->rdatastr();
 }
+
+
+sub aaaa_data {
+  my $response = shift;
+  return "" unless defined $response->{response};
+  return (
+    grep { ref() eq "Net::DNS::RR::AAAA" } $response->{response}->answer()
+  )[0]->rdatastr();
+}
+
+

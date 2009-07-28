@@ -1,12 +1,13 @@
-# $Id: DNS.pm 73 2009-02-18 04:48:06Z rcaputo $
+# $Id: DNS.pm 79 2009-07-28 06:01:07Z rcaputo $
 # License and documentation are after __END__.
+# vim: ts=2 sw=2 expandtab
 
 package POE::Component::Client::DNS;
 
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '1.03';
+$VERSION = '1.04';
 
 use Carp qw(croak);
 
@@ -51,6 +52,8 @@ sub spawn {
   $timeout = 90 unless $timeout;
 
   my $nameservers = delete $params{Nameservers};
+  my $resolver = Net::DNS::Resolver->new();
+  $nameservers ||= [ $resolver->nameservers() ];
 
   my $hosts = delete $params{HostsFile};
 
@@ -62,7 +65,7 @@ sub spawn {
     $alias,                     # SF_ALIAS
     $timeout,                   # SF_TIMEOUT
     $nameservers,               # SF_NAMESERVERS
-    Net::DNS::Resolver->new(),  # SF_RESOLVER
+    $resolver,                  # SF_RESOLVER
     $hosts,                     # SF_HOSTS_FILE
     0,                          # SF_HOSTS_MTIME
     0,                          # SF_HOSTS_CTIME
@@ -73,9 +76,8 @@ sub spawn {
   ], $type;
 
   # Set the list of nameservers, if one was supplied.
-  if (defined($nameservers) and ref($nameservers) eq 'ARRAY') {
-    $self->[SF_RESOLVER]->nameservers(@$nameservers);
-  }
+  # May redundantly reset itself.
+  $self->[SF_RESOLVER]->nameservers(@$nameservers);
 
   POE::Session->create(
     object_states => [
@@ -191,13 +193,13 @@ sub _dns_resolve {
   # -><- This is not always the right thing to do, but it's more right
   # more often than never checking at all.
 
-  if ($type eq "A" and $class eq "IN") {
-    my $address = $self->check_hosts_file($host);
+  if (($type eq "A" or $type eq "AAAA") and $class eq "IN") {
+    my $address = $self->check_hosts_file($host, $type);
 
     if (defined $address) {
       # Pretend the request went through a name server.
 
-      my $packet = Net::DNS::Packet->new($address, "A", "IN");
+      my $packet = Net::DNS::Packet->new($address, $type, "IN");
       $packet->push(
         "answer",
         Net::DNS::RR->new(
@@ -244,6 +246,7 @@ sub _dns_resolve {
       started   => $now,
       ends      => $now + $timeout,
       api_ver   => $api_version,
+      nameservers => [ $self->[SF_RESOLVER]->nameservers() ],
     }
   );
 }
@@ -284,14 +287,16 @@ sub _dns_do_request {
 
   $self->[SF_REQ_BY_SOCK]->{$resolver_socket} = $req;
 
-  $kernel->delay($resolver_socket, $remaining, $resolver_socket);
+  $kernel->delay($resolver_socket, $remaining / 2, $resolver_socket);
   $kernel->select_read($resolver_socket, 'got_dns_response');
 
   # Save the socket for pre-emptive shutdown.
   $req->{resolver_socket} = $resolver_socket;
 }
 
-# A resolver query timed out.  Post an error back.
+# A resolver query timed out.  Keep trying until we run out of time.
+# Also, if the top nameserver is the one we tried, then cycle the
+# nameservers.
 
 sub _dns_default {
   my ($self, $kernel, $event, $args) = @_[OBJECT, KERNEL, ARG0, ARG1];
@@ -305,12 +310,31 @@ sub _dns_default {
   # Stop watching the socket.
   $kernel->select_read($socket);
 
-  # Post back an undefined response, indicating we timed out.
-  _send_response(
-    %$req,
-    response => undef,
-    error    => "timeout",
-  );
+  # No more time remaining?  We must time out.
+  my $remaining = $req->{ends} - time();
+  if ($remaining <= 0) {
+    _send_response(
+      %$req,
+      response => undef,
+      error    => "timeout",
+    );
+    return;
+  }
+
+  # There remains time.  Let's try again.
+
+  # The nameserver we tried has failed us.  If it's the top
+  # nameserver in Net::DNS's list, then send it to the back and retry.
+
+  my @nameservers = $self->[SF_RESOLVER]->nameservers();
+  if ($nameservers[0] eq $req->{nameservers}[0]) {
+    push @nameservers, shift(@nameservers);
+    $self->[SF_RESOLVER]->nameservers(@nameservers);
+    $req->{nameservers} = \@nameservers;
+  }
+
+  # Retry.
+  $kernel->yield(send_request => $req);
 
   # Don't accidentally handle signals.
   return;
@@ -420,7 +444,7 @@ sub _send_response {
 ### NOT A POE EVENT HANDLER
 
 sub check_hosts_file {
-  my ($self, $host) = @_;
+  my ($self, $host, $type) = @_;
 
   # Use the hosts file that was specified, or find one.
   my $use_hosts_file;
@@ -487,22 +511,18 @@ sub check_hosts_file {
       s/^\s*//;
       chomp;
       my ($address, @aliases) = split;
-
+      my $type = ($address =~ /:/) ? "AAAA" : "A";
       foreach my $alias (@aliases) {
-        $cached_hosts{$alias}{$address} = 1;
+        $cached_hosts{$alias}{$type}{$address} = 1;
       }
     }
     close HOST;
 
     # Normalize our cached hosts.
-    foreach my $alias (keys %cached_hosts) {
-      my @addresses = keys %{$cached_hosts{$alias}};
-      my @ipv4 = grep /\./, @addresses;
-      if (@ipv4) {
-        $cached_hosts{$alias} = $ipv4[0];
-        next;
+    while (my ($alias, $type_rec) = each %cached_hosts) {
+      while (my ($type, $address_rec) = each %$type_rec) {
+        $cached_hosts{$alias}{$type} = (keys %$address_rec)[0];
       }
-      $cached_hosts{$alias} = $addresses[0];
     }
 
     $self->[SF_HOSTS_CACHE] = \%cached_hosts;
@@ -513,7 +533,11 @@ sub check_hosts_file {
   }
 
   # Return whatever match we have.
-  return $self->[SF_HOSTS_CACHE]{$host};
+  return unless (
+    (exists $self->[SF_HOSTS_CACHE]{$host}) and
+    (exists $self->[SF_HOSTS_CACHE]{$host}{$type})
+  );
+  return $self->[SF_HOSTS_CACHE]{$host}{$type};
 }
 
 ### NOT A POE EVENT HANDLER
@@ -721,13 +745,6 @@ L<Net::DNS> - This module uses Net::DNS internally.
 L<Net::DNS::Packet> - Responses are returned as Net::DNS::Packet
 objects.
 
-=head1 BUGS
-
-This component does not yet expose the full power of Net::DNS.
-
-Timeouts have not been tested extensively.  Please contact the author
-if you know of a reliable way to test DNS timeouts.
-
 =head1 DEPRECATIONS
 
 The older, list-based interfaces are no longer documented as of
@@ -746,15 +763,25 @@ As of April 2005 the mandatory warnings will be upgraded to mandatory
 errors.  Support for the deprecated interfaces will be removed
 entirely.
 
+=head1 BUG TRACKER
+
+https://rt.cpan.org/Dist/Display.html?Status=Active&Queue=POE-Component-Client-DNS
+
+=head1 REPOSITORY
+
+http://thirdlobe.com/svn/poco-client-dns/
+
+=head1 OTHER RESOURCES
+
+http://search.cpan.org/dist/POE-Component-Client-DNS/
+
 =head1 AUTHOR & COPYRIGHTS
 
-POE::Component::Client::DNS is Copyright 1999-2004 by Rocco Caputo.
+POE::Component::Client::DNS is Copyright 1999-2009 by Rocco Caputo.
 All rights are reserved.  POE::Component::Client::DNS is free
 software; you may redistribute it and/or modify it under the same
 terms as Perl itself.
 
 Postback arguments were contributed by tag.
-
-Rocco may be contacted by e-mail via rcaputo@cpan.org.
 
 =cut
