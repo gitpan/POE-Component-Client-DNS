@@ -1,4 +1,4 @@
-# $Id: DNS.pm 79 2009-07-28 06:01:07Z rcaputo $
+# $Id: DNS.pm 83 2009-08-28 06:46:24Z rcaputo $
 # License and documentation are after __END__.
 # vim: ts=2 sw=2 expandtab
 
@@ -7,7 +7,7 @@ package POE::Component::Client::DNS;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '1.04';
+$VERSION = '1.050';
 
 use Carp qw(croak);
 
@@ -507,10 +507,14 @@ sub check_hosts_file {
 
     my %cached_hosts;
     while (<HOST>) {
-      next if /^\s*\#/;
-      s/^\s*//;
+      next if /^\s*\#/; # skip all-comment lines
+      next if /^\s*$/;  # skip empty lines
       chomp;
+
+      # Bare split discards leading and trailing whitespace.
       my ($address, @aliases) = split;
+      next unless defined $address;
+
       my $type = ($address =~ /:/) ? "AAAA" : "A";
       foreach my $alias (@aliases) {
         $cached_hosts{$alias}{$type}{$address} = 1;
@@ -765,7 +769,7 @@ entirely.
 
 =head1 BUG TRACKER
 
-https://rt.cpan.org/Dist/Display.html?Status=Active&Queue=POE-Component-Client-DNS
+https://rt.cpan.org/Dist/Display.html?Queue=POE-Component-Client-DNS
 
 =head1 REPOSITORY
 

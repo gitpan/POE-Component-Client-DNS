@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: 04_errors.t 73 2009-02-18 04:48:06Z rcaputo $
+# $Id: 04_errors.t 83 2009-08-28 06:46:24Z rcaputo $
 # vim: filetype=perl
 
 # Deliberately trigger errors.
@@ -9,7 +9,8 @@ use strict;
 sub POE::Kernel::CATCH_EXCEPTIONS () { 0 }
 use POE qw(Component::Client::DNS);
 
-use Test::More tests => 9;
+use Test::More tests => 10;
+use Test::NoWarnings;
 
 # Avoid a warning.
 POE::Kernel->run();

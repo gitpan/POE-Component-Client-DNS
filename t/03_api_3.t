@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: 03_api_3.t 56 2006-05-21 20:43:08Z rcaputo $
+# $Id: 03_api_3.t 83 2009-08-28 06:46:24Z rcaputo $
 # vim: filetype=perl
 
 # Test the version 3 API.
@@ -7,7 +7,8 @@
 use strict;
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE qw(Component::Client::DNS);
-use Test::More tests => 4;
+use Test::More tests => 5;
+use Test::NoWarnings;
 
 POE::Component::Client::DNS->spawn(
   Alias   => 'named',

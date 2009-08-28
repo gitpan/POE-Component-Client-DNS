@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# $Id: Makefile.PL 79 2009-07-28 06:01:07Z rcaputo $
+# $Id: Makefile.PL 83 2009-08-28 06:46:24Z rcaputo $
 
 use ExtUtils::MakeMaker;
 
@@ -14,9 +14,10 @@ WriteMakefile(
   VERSION_FROM => 'DNS.pm',
   PM           => { 'DNS.pm' => '$(INST_LIBDIR)/DNS.pm' },
   PREREQ_PM    => {
-    'POE'        => 1.007,
-    'Net::DNS'   => 0.59,
-    'Test::More' => 0,
+    'POE'               => 1.007,
+    'Net::DNS'          => 0.59,
+    'Test::More'        => 0,
+		'Test::NoWarnings'  => 0.084,
   },
   META_ADD     => {
     resources  => {
