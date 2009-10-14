@@ -1,102 +1,151 @@
-==================================
-2009-08-28T06:48:27.516134Z v1_050
-==================================
+================================
+2009-10-14 03:06:11 -0400 v1_051
+================================
 
-  2009-08-28 06:46:24 (r83) by rcaputo
-  t/02_tag_args.t M; DNS.pm M; t/03_api_3.t M; t/01_resolve.t M;
-  t/04_errors.t M; t/05_api_4.t M; Makefile.PL M; t/06_hosts.t M
+  commit 752c05c86c55c7f42c614ad0e56110b0e3543a6c
+  Author: Rocco Caputo <rcaputo@cpan.org>
+  Date:   Wed Oct 14 03:06:11 2009 -0400
+  
+    Prepare for release.
 
+  commit 9946ea262b24edac293ce709a99875af9aed2f9f
+  Author: Rocco Caputo <rcaputo@cpan.org>
+  Date:   Mon Oct 12 23:57:38 2009 -0400
+  
+    Add a 00_info.t test to help debug platform and dependency based
+    issues.
+
+  commit 86564af4621eacd93cf3ae4aeb66b27756f2f6e5
+  Author: Rocco Caputo <rcaputo@cpan.org>
+  Date:   Mon Sep 14 02:01:34 2009 -0400
+  
+    Administrivia to convert the repository to git. 
+
+================================
+2009-08-28 06:46:24 +0000 v1_050
+================================
+
+  commit e88dccf85d700690d4dfa2a4b96a2503436a9bf3
+  Author: Rocco Caputo <rcaputo@cpan.org>
+  Date:   Fri Aug 28 06:46:24 2009 +0000
+  
     Jonathan Yu found a warning while packaging this distro for Debian.
     I've applied his patch from rt.cpan.org 48335, and I took his
     suggestion to start using Test::NoWarnings.
-    
+
     Philip Gwyn found a strange case where IPv6 localhost was returned as
     ::1 rather than the long form. Added a check for both forms.
-    
-    Bumped the version to 1.050 for release. 
 
-  2009-08-28 06:03:27 (r82) by rcaputo; DNS.pm M
+    Bumped the version to 1.050 for release.
 
+  commit 89a38b07ec86b0a4c7ffa3d07824db42f71325d3
+  Author: Rocco Caputo <rcaputo@cpan.org>
+  Date:   Fri Aug 28 06:03:27 2009 +0000
+  
     Fix a POD error (line too long, broken link to RT) reported by
-    Jonathan Yu, ironically in rt.cpan.org ticket 48336. :) 
+    Jonathan Yu, ironically in rt.cpan.org ticket 48336. :)
 
-  2009-08-17 04:36:45 (r81) by rcaputo; DNS.pm M
-
+  commit 57333ebe319083d11505682c3ee50eaf0255e85a
+  Author: Rocco Caputo <rcaputo@cpan.org>
+  Date:   Mon Aug 17 04:36:45 2009 +0000
+  
     Fix a warning for /etc/hosts files that contain blank lines or
     comments. Suggested by Leonid Rashkovsky in e-mail. 
 
-=================================
-2009-07-28T06:01:31.124742Z v1_04
-=================================
+===============================
+2009-07-28 06:01:07 +0000 v1_04
+===============================
 
-  2009-07-28 06:01:07 (r79) by rcaputo; DNS.pm M; Makefile.PL M
-
+  commit 66459a39445fcc2bccefd87614bbd7a88da7603e
+  Author: Rocco Caputo <rcaputo@cpan.org>
+  Date:   Tue Jul 28 06:01:07 2009 +0000
+  
     Use latest POE, and prepare for a new release.
 
-  2009-07-27 04:51:28 (r78) by rcaputo; DNS.pm M; Makefile.PL M
-
+  commit 0444141729f991b6fd0c8b401a24be064eadb490
+  Author: Rocco Caputo <rcaputo@cpan.org>
+  Date:   Mon Jul 27 04:51:28 2009 +0000
+  
     Added a machine-readable repository directory to the distribution.
-    Documented the bug tracker, repository, and other resource URLs. 
+    Documented the bug tracker, repository, and other resource URLs.
 
-  2009-07-26 06:30:34 (r77) by rcaputo; DNS.pm M; t/06_hosts.t M
-
+  commit 6aef81d8a208a87523e61858aad7de6408018c00
+  Author: Rocco Caputo <rcaputo@cpan.org>
+  Date:   Sun Jul 26 06:30:34 2009 +0000
+  
     Resolve (heh) rt.cpan.org ticket #13899. AAAA requests will check for
     IPv6 addresses in /etc/hosts or your favorite operating system's
-    equivalent. 
+    equivalent.
 
-  2009-07-26 05:59:34 (r76) by rcaputo; DNS.pm M
-
-    Resolve rt.cpan.org ticket #13492 by Sébastien Aperghis-Tramoni,
+  commit f2a0d801de751f7167f807b47e0b92f7b7871869
+  Author: Rocco Caputo <rcaputo@cpan.org>
+  Date:   Sun Jul 26 05:59:34 2009 +0000
+  
+    Resolve rt.cpan.org ticket #13492 by SÃ©bastien Aperghis-Tramoni,
     #14723 by Branislav Gerzo, and umbrella ticket #15009 by cycling
     through the list of resolvers known to Net::DNS if the top one times
-    out. 
+    out.
 
-  2009-02-18 05:41:14 (r75) by rcaputo; t/06_hosts.t M
-
-    Applied a patch by René Mayorga, resolving rt.cpan.org ticket 41313.
-    René's patch uses Net::DNS to find poe.perl.org's address and use
-    that instead of hardcoded values. Thanks also go to René for
+  commit 8837031bcb73a570ccf78ac9a326eff1d3eef63f
+  Author: Rocco Caputo <rcaputo@cpan.org>
+  Date:   Wed Feb 18 05:41:14 2009 +0000
+  
+    Applied a patch by RenÃ© Mayorga, resolving rt.cpan.org ticket 41313.
+    RenÃ©'s patch uses Net::DNS to find poe.perl.org's address and use
+    that instead of hardcoded values. Thanks also go to RenÃ© for
     submitting the patch through rt.cpan.org. I may never have discovered
     ticket 506915 on bugs.debian.org. 
 
-=================================
-2009-02-18T04:48:37.232115Z v1_03
-=================================
+===============================
+2009-02-18 04:48:06 +0000 v1_03
+===============================
 
-  2009-02-18 04:48:06 (r73) by rcaputo; DNS.pm M; t/04_errors.t M
+  commit 40146e80790ee6cc57509435335b72a78f5d4d73
+  Author: Rocco Caputo <rcaputo@cpan.org>
+  Date:   Wed Feb 18 04:48:06 2009 +0000
+  
+    Fix warnings uncovered by POE's recent global-warning issue.
 
-    Fix warnings uncovered by POE's recent global-warning issue. 
-
-  2009-02-02 07:50:33 (r72) by hachi; DNS.pm M
-
+  commit 25a1c546a0baa5502b9db1420a5604ad0b1ae499
+  Author: Jonathan Steinert <hachi@kuiki.net>
+  Date:   Mon Feb 2 07:50:33 2009 +0000
+  
     Make it safe to have more than one PoCoDNS object.
-    
+
     Somehow this bug has been no problem for people this entire time. An
-    amazing trick really :D
+    amazing trick really :D 
 
-=================================
-2009-01-13T20:18:27.751944Z v1_02
-=================================
+===============================
+2009-01-13 20:08:27 +0000 v1_02
+===============================
 
-  2009-01-13 20:08:27 (r70) by rcaputo; DNS.pm M; t/06_hosts.t M
-
+  commit 48c0fd5bd0bb563af05909ea7a1da4d51c99699d
+  Author: Rocco Caputo <rcaputo@cpan.org>
+  Date:   Tue Jan 13 20:08:27 2009 +0000
+  
     A host-file test was failing because its address segments were wider
     than single octets. 
 
-=================================
-2008-10-29T16:19:41.680362Z v1_01
-=================================
+===============================
+2008-10-29 16:18:54 +0000 v1_01
+===============================
 
-  2008-10-29 16:18:54 (r68) by rcaputo; DNS.pm M
-
+  commit 85d4bb5f8b4507e7a564c8e85f3c9049f468012f
+  Author: Rocco Caputo <rcaputo@cpan.org>
+  Date:   Wed Oct 29 16:18:54 2008 +0000
+  
     New version.
 
-  2008-10-15 03:18:31 (r67) by rcaputo; t/06_hosts.t M
-
+  commit a5442ca84b9193c7b51edcd3189ad87062f24193
+  Author: Rocco Caputo <rcaputo@cpan.org>
+  Date:   Wed Oct 15 03:18:31 2008 +0000
+  
     Accommodate DNS change for poe.perl.org in the tests.
 
-  2008-03-24 17:33:22 (r66) by rcaputo; t/06_hosts.t M
-
+  commit aa430132cd83be5ed5de23957e35278d34e12a8c
+  Author: Rocco Caputo <rcaputo@cpan.org>
+  Date:   Mon Mar 24 17:33:22 2008 +0000
+  
     Apply Martin Ferrari's patch to skip network tests if there's no
     detectable network. Resolves rt.cpan.org ticket 33677. 
 

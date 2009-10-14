@@ -1,5 +1,4 @@
 #!/usr/bin/perl -w
-# $Id: 04_errors.t 83 2009-08-28 06:46:24Z rcaputo $
 # vim: filetype=perl
 
 # Deliberately trigger errors.

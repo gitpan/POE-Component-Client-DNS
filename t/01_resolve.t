@@ -1,5 +1,4 @@
 #!/usr/bin/perl -w
-# $Id: 01_resolve.t 83 2009-08-28 06:46:24Z rcaputo $
 
 use strict;
 

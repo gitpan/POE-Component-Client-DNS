@@ -1,4 +1,3 @@
-# $Id: DNS.pm 83 2009-08-28 06:46:24Z rcaputo $
 # License and documentation are after __END__.
 # vim: ts=2 sw=2 expandtab
 
@@ -7,7 +6,7 @@ package POE::Component::Client::DNS;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '1.050';
+$VERSION = '1.051';
 
 use Carp qw(croak);
 
@@ -773,7 +772,7 @@ https://rt.cpan.org/Dist/Display.html?Queue=POE-Component-Client-DNS
 
 =head1 REPOSITORY
 
-http://thirdlobe.com/svn/poco-client-dns/
+http://github.com/rcaputo/poe-component-client-dns
 
 =head1 OTHER RESOURCES
 

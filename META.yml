@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               POE-Component-Client-DNS
-version:            1.050
+version:            1.051
 abstract:           Non-blocking/concurrent DNS queries using Net::DNS and POE
 author:
     - Rocco Caputo <rcaputo@cpan.org>
@@ -12,12 +12,12 @@ build_requires:
     ExtUtils::MakeMaker:  0
 requires:
     Net::DNS:          0.59
-    POE:               1.007
+    POE:               1.28
     Test::More:        0
     Test::NoWarnings:  0.084
 resources:
     license:     http://dev.perl.org/licenses/
-    repository:  http://thirdlobe.com/svn/poco-client-dns/trunk
+    repository:  http://github.com/rcaputo/poe-component-client-dns
 no_index:
     directory:
         - t

@@ -1,5 +1,4 @@
 #!/usr/bin/perl
-# $Id: 06_hosts.t 83 2009-08-28 06:46:24Z rcaputo $
 # vim: filetype=perl
 
 # Test the hosts file stuff.
