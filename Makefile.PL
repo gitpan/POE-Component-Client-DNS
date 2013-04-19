@@ -1,33 +1,54 @@
-#!/usr/bin/perl
 
-use ExtUtils::MakeMaker;
+use strict;
+use warnings;
 
-# Touch CHANGES so it exists.
-open(CHANGES, ">>CHANGES") and close CHANGES;
 
-WriteMakefile(
-  NAME         => 'POE::Component::Client::DNS',
-  AUTHOR       => 'Rocco Caputo <rcaputo@cpan.org>',
-  ABSTRACT     => 'Non-blocking/concurrent DNS queries using Net::DNS and POE',
-  LICENSE      => 'perl',
-  VERSION_FROM => 'lib/POE/Component/Client/DNS.pm',
-  PREREQ_PM    => {
-    'POE'               => 1.280,
-    'Net::DNS'          => 0.59,
-    'Test::More'        => 0,
-		'Test::NoWarnings'  => 0.084,
+
+use ExtUtils::MakeMaker 6.30;
+
+
+
+my %WriteMakefileArgs = (
+  "ABSTRACT" => "non-blocking, parallel DNS client",
+  "AUTHOR" => "Rocco Caputo <rcaputo\@cpan.org>",
+  "BUILD_REQUIRES" => {},
+  "CONFIGURE_REQUIRES" => {
+    "ExtUtils::MakeMaker" => "6.30"
   },
-  META_ADD     => {
-    resources  => {
-      license    => 'http://dev.perl.org/licenses/',
-      repository => 'http://github.com/rcaputo/poe-component-client-dns',
-    },
+  "DISTNAME" => "POE-Component-Client-DNS",
+  "EXE_FILES" => [],
+  "LICENSE" => "perl",
+  "NAME" => "POE::Component::Client::DNS",
+  "PREREQ_PM" => {
+    "Net::DNS" => "0.65",
+    "POE" => "1.294",
+    "Test::More" => "0.96",
+    "Test::NoWarnings" => "1.02"
   },
-  dist         => {
-    COMPRESS   => 'gzip -9f',
-    SUFFIX     => 'gz',
-    PREOP      => (
-      'git-log.pl | tee ./$(DISTNAME)-$(VERSION)/CHANGES > ./CHANGES'
-    ),
-  },
+  "VERSION" => "1.052",
+  "test" => {
+    "TESTS" => "t/*.t"
+  }
 );
+
+
+unless ( eval { ExtUtils::MakeMaker->VERSION(6.56) } ) {
+  my $br = delete $WriteMakefileArgs{BUILD_REQUIRES};
+  my $pp = $WriteMakefileArgs{PREREQ_PM};
+  for my $mod ( keys %$br ) {
+    if ( exists $pp->{$mod} ) {
+      $pp->{$mod} = $br->{$mod} if $br->{$mod} > $pp->{$mod};
+    }
+    else {
+      $pp->{$mod} = $br->{$mod};
+    }
+  }
+}
+
+delete $WriteMakefileArgs{CONFIGURE_REQUIRES}
+  unless eval { ExtUtils::MakeMaker->VERSION(6.52) };
+
+WriteMakefile(%WriteMakefileArgs);
+
+
+

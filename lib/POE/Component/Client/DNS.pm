@@ -2,11 +2,11 @@
 # vim: ts=2 sw=2 expandtab
 
 package POE::Component::Client::DNS;
+{
+  $POE::Component::Client::DNS::VERSION = '1.052';
+}
 
 use strict;
-
-use vars qw($VERSION);
-$VERSION = '1.051';
 
 use Carp qw(croak);
 
@@ -22,18 +22,18 @@ my $global_hosts_file;
 
 # Object fields.  "SF" stands for "self".
 
-sub SF_ALIAS       () { 0 }
-sub SF_TIMEOUT     () { 1 }
-sub SF_NAMESERVERS () { 2 }
-sub SF_RESOLVER    () { 3 }
-sub SF_HOSTS_FILE  () { 4 }
-sub SF_HOSTS_MTIME () { 5 }
-sub SF_HOSTS_CTIME () { 6 }
-sub SF_HOSTS_INODE () { 7 }
-sub SF_HOSTS_CACHE () { 8 }
-sub SF_HOSTS_BYTES () { 9 }
-sub SF_SHUTDOWN    () { 10 }
-sub SF_REQ_BY_SOCK () { 11 }
+use constant SF_ALIAS       => 0;
+use constant SF_TIMEOUT     => 1;
+use constant SF_NAMESERVERS => 2;
+use constant SF_RESOLVER    => 3;
+use constant SF_HOSTS_FILE  => 4;
+use constant SF_HOSTS_MTIME => 5;
+use constant SF_HOSTS_CTIME => 6;
+use constant SF_HOSTS_INODE => 7;
+use constant SF_HOSTS_CACHE => 8;
+use constant SF_HOSTS_BYTES => 9;
+use constant SF_SHUTDOWN    => 10;
+use constant SF_REQ_BY_SOCK => 11;
 
 # Spawn a new PoCo::Client::DNS session.  This basically is a
 # constructor, but it isn't named "new" because it doesn't create a
@@ -59,6 +59,9 @@ sub spawn {
   croak(
     "$type doesn't know these parameters: ", join(', ', sort keys %params)
   ) if scalar keys %params;
+
+  # TODO - SF_NAMESERVERS isn't used right now.  It exists for future
+  # expansion.
 
   my $self = bless [
     $alias,                     # SF_ALIAS
@@ -143,6 +146,8 @@ sub _dns_resolve {
 
   my ($api_version, $context, $timeout);
 
+  my @nameservers;
+
   # Version 3 API.  Pass the entire request as a hash.
   if (ref($event) eq 'HASH') {
     my %args = %$event;
@@ -160,6 +165,8 @@ sub _dns_resolve {
     die "Must include a 'context' $debug_info" unless $context;
 
     $timeout = delete $args{timeout};
+
+    @nameservers = @{delete $args{nameservers}} if $args{nameservers};
 
     $host = delete $args{host};
     die "Must include a 'host' $debug_info" unless $host;
@@ -182,6 +189,8 @@ sub _dns_resolve {
     $api_version = 1;
   }
 
+  @nameservers = @{ $self->[SF_NAMESERVERS] } unless @nameservers;
+
   # Default the request's timeout.
   $timeout = $self->[SF_TIMEOUT] unless $timeout;
 
@@ -193,7 +202,7 @@ sub _dns_resolve {
   # more often than never checking at all.
 
   if (($type eq "A" or $type eq "AAAA") and $class eq "IN") {
-    my $address = $self->check_hosts_file($host, $type);
+    my $address = $self->_check_hosts_file($host, $type);
 
     if (defined $address) {
       # Pretend the request went through a name server.
@@ -236,16 +245,16 @@ sub _dns_resolve {
   $kernel->call(
     $self->[SF_ALIAS],
     send_request => {
-      sender    => $sender,
-      event     => $event,
-      host      => $host,
-      type      => $type,
-      class     => $class,
-      context   => $context,
-      started   => $now,
-      ends      => $now + $timeout,
-      api_ver   => $api_version,
-      nameservers => [ $self->[SF_RESOLVER]->nameservers() ],
+      sender      => $sender,
+      event       => $event,
+      host        => $host,
+      type        => $type,
+      class       => $class,
+      context     => $context,
+      started     => $now,
+      ends        => $now + $timeout,
+      api_ver     => $api_version,
+      nameservers => \@nameservers,
     }
   );
 }
@@ -267,6 +276,10 @@ sub _dns_do_request {
   }
 
   # Send the request.
+
+  $self->[SF_RESOLVER]->nameservers(
+    @{ $req->{nameservers} || $self->[SF_NAMESERVERS] }
+  );
   my $resolver_socket = $self->[SF_RESOLVER]->bgsend(
     $req->{host},
     $req->{type},
@@ -324,18 +337,18 @@ sub _dns_default {
 
   # The nameserver we tried has failed us.  If it's the top
   # nameserver in Net::DNS's list, then send it to the back and retry.
+  # TODO - What happens if they all fail forever?
 
-  my @nameservers = $self->[SF_RESOLVER]->nameservers();
-  if ($nameservers[0] eq $req->{nameservers}[0]) {
-    push @nameservers, shift(@nameservers);
-    $self->[SF_RESOLVER]->nameservers(@nameservers);
-    $req->{nameservers} = \@nameservers;
-  }
+  my @nameservers = @{ $req->{nameservers} };
+  push @nameservers, shift(@nameservers);
+  $self->[SF_RESOLVER]->nameservers(@nameservers);
+  $req->{nameservers} = \@nameservers;
 
   # Retry.
   $kernel->yield(send_request => $req);
 
   # Don't accidentally handle signals.
+  # Only meaningful for old POEs.
   return;
 }
 
@@ -442,7 +455,7 @@ sub _send_response {
 
 ### NOT A POE EVENT HANDLER
 
-sub check_hosts_file {
+sub _check_hosts_file {
   my ($self, $host, $type) = @_;
 
   # Use the hosts file that was specified, or find one.
@@ -556,7 +569,11 @@ __END__
 
 =head1 NAME
 
-POE::Component::Client::DNS - non-blocking, concurrent DNS requests
+POE::Component::Client::DNS - non-blocking, parallel DNS client
+
+=head1 VERSION
+
+version 1.052
 
 =head1 SYNOPSIS
 
@@ -602,9 +619,12 @@ POE::Component::Client::DNS - non-blocking, concurrent DNS requests
 
 =head1 DESCRIPTION
 
-POE::Component::Client::DNS provides a facility for non-blocking,
-concurrent DNS requests.  Using POE, it allows other tasks to run
-while waiting for name servers to respond.
+POE::Component::Client::DNS provides non-blocking, parallel DNS
+requests via Net::DNS.  Using POE, it allows other tasks to run while
+waiting for name servers to respond.
+
+For simple name resolution, including smart handling of IPv6 names,
+please see L<POE::Component::Resolver> instead.
 
 =head1 PUBLIC METHODS
 
@@ -613,14 +633,14 @@ while waiting for name servers to respond.
 =item spawn
 
 A program must spawn at least one POE::Component::Client::DNS instance
-before it can perform background DNS lookups.  Each instance
-represents a connection to a name server, or a pool of them.  If a
-program only needs to request DNS lookups from one server, then you
-only need one POE::Component::Client::DNS instance.
+before it can perform background DNS requests.  Each instance
+represents a connection to one or more name servers.  If a program
+only needs to request DNS requests from one server, then you only need
+one POE::Component::Client::DNS instance.
 
 As of version 0.98 you can override the default timeout per request.
-From this point forward there is no need to spawn multiple instances o
-affect different timeouts for each request.
+From this point forward there is no need to spawn multiple instances
+to affect different timeouts for each request.
 
 PoCo::Client::DNS's C<spawn> method takes a few named parameters:
 
@@ -670,12 +690,13 @@ it returns undef if a resolver must be consulted asynchronously.
 Requests are passed as a list of named fields.
 
   $resolver->resolve(
-    class   => $dns_record_class,  # defaults to "IN"
-    type    => $dns_record_type,   # defaults to "A"
-    host    => $request_host,      # required
-    context => $request_context,   # required
-    event   => $response_event,    # required
-    timeout => $request_timeout,   # defaults to spawn()'s Timeout
+    class       => $dns_record_class,  # defaults to "IN"
+    type        => $dns_record_type,   # defaults to "A"
+    host        => $request_host,      # required
+    context     => $request_context,   # required
+    event       => $response_event,    # required
+    timeout     => $request_timeout,   # defaults to spawn()'s Timeout
+    nameservers => $nameservers,       # defaults to $resolver's Nameservers
   );
 
 The "class" and "type" fields specify what kind of information to
@@ -711,7 +732,9 @@ interrogated or modified.  See L<Net::DNS::Resolver> for options.
 
 Set the resolver to check on nonstandard port 1153:
 
-  $poco_client_dns->resolver()->port(1153);
+  $poco_client_dns->get_resolver()->port(1153);
+
+=back
 
 =head1 RESPONSE MESSAGES
 
@@ -743,6 +766,9 @@ only valid if "response" is undefined.
 
 L<POE> - POE::Component::Client::DNS builds heavily on POE.
 
+L<POE::Component::Resolver> - A system name resolver, including IPv6
+support and whatever else your system supports.
+
 L<Net::DNS> - This module uses Net::DNS internally.
 
 L<Net::DNS::Packet> - Responses are returned as Net::DNS::Packet
@@ -765,6 +791,12 @@ warnings will persist until April 2005.
 As of April 2005 the mandatory warnings will be upgraded to mandatory
 errors.  Support for the deprecated interfaces will be removed
 entirely.
+
+As of late January 2011, POE::Component::Resolver provides basic
+system resolver support, including IPv6 and mDNS if your resolver's
+configured ot use it.  The use of POE::Component::Client::DNS for
+basic resolution is deprecated, however it's still the best option for
+actual DNS server requests.
 
 =head1 BUG TRACKER
 
