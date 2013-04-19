@@ -3,7 +3,7 @@
 
 package POE::Component::Client::DNS;
 {
-  $POE::Component::Client::DNS::VERSION = '1.052';
+  $POE::Component::Client::DNS::VERSION = '1.053';
 }
 
 use strict;
@@ -573,7 +573,7 @@ POE::Component::Client::DNS - non-blocking, parallel DNS client
 
 =head1 VERSION
 
-version 1.052
+version 1.053
 
 =head1 SYNOPSIS
 

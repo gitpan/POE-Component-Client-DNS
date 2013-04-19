@@ -18,5 +18,8 @@ requires:
   Test::More: 0.96
   Test::NoWarnings: 1.02
 resources:
+  bugtracker: http://rt.cpan.org/Public/Dist/Display.html?Name=POE-Component-Client-DNS
+  homepage: http://search.cpan.org/dist/POE-Component-Client-DNS
+  license: http://dev.perl.org/licenses/
   repository: git://github.com/rcaputo/poe-component-client-dns.git
-version: 1.052
+version: 1.053

@@ -2,7 +2,7 @@ NAME
     POE::Component::Client::DNS - non-blocking, parallel DNS client
 
 VERSION
-    version 1.052
+    version 1.053
 
 SYNOPSIS
       use POE qw(Component::Client::DNS);
